@@ -30,7 +30,7 @@ std::atomic<uint8_t> s_randomIndexInt8 = 0;
 
 void VectorInt8Math::InitRandom()
 {
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	uint32_t seed = (uint32_t)std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	if (s_randomUniverseNumbersInt8.empty())
 	{
@@ -73,7 +73,7 @@ std::atomic <uint16_t> s_randomIndexInt16 = 0;
 
 void VectorInt16Math::InitRandom()
 {
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	uint32_t seed = (uint32_t)std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	if (s_randomUniverseNumbersInt16.empty())
 	{
@@ -116,7 +116,7 @@ std::atomic<int32_t> s_randomIndexInt32 = VectorInt32Math::PPH_INT_MAX;
 bool s_isRandomGeneratedInt32 = false;
 void VectorInt32Math::InitRandom()
 {
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	uint32_t seed = (uint32_t)std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	if (s_randomUniverseNumbersInt32.empty())
 	{

@@ -10,16 +10,21 @@
 
 int main(int argc, char** argv)
 {
-	if (argc < 3)
+	if (argc < 5)
 	{
 		std::cout << "Not enough arguments";
+		return 0;
 	}
 	PPh::VectorInt32Math size;
-	size.m_posX = std::atoi(argv[0]);
-	size.m_posY = std::atoi(argv[1]);
-	size.m_posZ = std::atoi(argv[2]);
+	size.m_posX = std::atoi(argv[1]);
+	size.m_posY = std::atoi(argv[2]);
+	size.m_posZ = std::atoi(argv[3]);
 
 	PPh::ParallelPhysics::Init(size, 0);
-	PPh::ParallelPhysics::GetInstance()->StartSimulation();
+	if (PPh::ParallelPhysics::LoadUniverse(argv[4]))
+	{
+		PPh::Observer::Init(PPh::VectorInt32Math(26,119,11), PPh::SP_EyeState());
+		PPh::ParallelPhysics::GetInstance()->StartSimulation();
+	}
 	return 0;
 }
