@@ -83,17 +83,19 @@ public:
 	VectorInt32Math GetPosition() const;
 	void SetNewPosition(const VectorInt32Math &pos);
 	VectorInt32Math GetNewPosition() const;
+	OrientationVectorMath GetOrientation() const;
 
 	const VectorInt32Math& GetOrientMinChanger() const;
 	const VectorInt32Math& GetOrientMaxChanger() const;
 
 	void Echolocation();
 	void CalculateEyeState();
+
 private:
 	friend class ParallelPhysics;
 	void SetPosition(const VectorInt32Math &pos);
 	void CalculateOrientChangers(const EyeArray &eyeArray);
-	OrientationVectorMath MaximizePPhOrientation(const VectorFloatMath &orientationVector);
+	OrientationVectorMath MaximizePPhOrientation(const VectorFloatMath &orientationVector) const;
 
 	VectorInt32Math m_position = VectorInt32Math::ZeroVector;
 	VectorInt32Math m_newPosition = VectorInt32Math::ZeroVector;
@@ -117,5 +119,6 @@ private:
 
 	int16_t m_latitude = 0;
 	int16_t m_longitude = 0;
+	uint16_t m_movingProgress = 0; //
 };
 }

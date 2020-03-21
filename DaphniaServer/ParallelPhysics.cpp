@@ -422,8 +422,7 @@ void ParallelPhysics::StartSimulation()
 			char buffer[64];
 			struct sockaddr_in from;
 			int fromlen = sizeof(from);
-			int len = recvfrom(socketS, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen);
-			if (len > 0)
+			while (recvfrom(socketS, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
 			{
 				if (QueryMessage<MsgGetState>(buffer))
 				{
@@ -449,6 +448,10 @@ void ParallelPhysics::StartSimulation()
 							photon.m_color = EtherColor::ZeroColor;
 						}
 					}
+				}
+				else if (QueryMessage<MsgMoveForward>(buffer))
+				{
+
 				}
 			}
 			Observer::GetInstance()->Echolocation();
@@ -541,9 +544,8 @@ bool ParallelPhysics::InitEtherCell(const VectorInt32Math &pos, EtherType::EEthe
 	return false;
 }
 
-bool ParallelPhysics::EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
+VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const OrientationVectorMath &orient)
 {
-	const OrientationVectorMath &orient = photon.m_orientation;
 	VectorInt32Math unitVector = VectorInt32Math::ZeroVector;
 	if (std::abs(orient.m_posX) >= OrientationVectorMath::GetRandomNumber())
 	{
@@ -558,6 +560,12 @@ bool ParallelPhysics::EmitPhoton(const VectorInt32Math &pos, const Photon &photo
 		unitVector.m_posZ = OrientationVectorMath::Sign(orient.m_posZ);
 	}
 
+	return unitVector;
+}
+
+bool ParallelPhysics::EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
+{
+	VectorInt32Math unitVector = CalculatePositionShift(pos, photon.m_orientation);
 	VectorInt32Math nextPos = pos + unitVector;
 	if (IsPosInBounds(nextPos))
 	{
@@ -891,6 +899,18 @@ void Observer::CalculateEyeState()
 	CalculateOrientChangers(*m_eyeState);
 }
 
+OrientationVectorMath Observer::GetOrientation() const
+{
+	VectorFloatMath orientFloat;
+	float pi = 3.1415927410125732421875f;
+	orientFloat.m_posX = cosf(m_latitude * pi / 180) * cosf(m_longitude * pi / 180);
+	orientFloat.m_posY = cosf(m_latitude * pi / 180) * sinf(m_longitude * pi / 180);
+	orientFloat.m_posZ = sinf(m_latitude * pi / 180);
+
+	OrientationVectorMath orient = MaximizePPhOrientation(orientFloat);
+	return orient;
+}
+
 int32_t RoundToMinMaxPPhInt(float value)
 {
 	int32_t result = 0;
@@ -923,7 +943,7 @@ int32_t RoundToMinMaxPPhInt(float value)
 	return componentCorrect;
 }*/
 
-OrientationVectorMath Observer::MaximizePPhOrientation(const VectorFloatMath &orientationVector)
+OrientationVectorMath Observer::MaximizePPhOrientation(const VectorFloatMath &orientationVector) const
 {
 	float maxComponent = std::max(std::max(std::abs(orientationVector.m_posX), std::abs(orientationVector.m_posY)), std::abs(orientationVector.m_posZ));
 	float factor = 0;
