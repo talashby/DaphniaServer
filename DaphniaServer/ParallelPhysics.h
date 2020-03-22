@@ -44,11 +44,12 @@ public:
 	static uint64_t GetTickTimeNsObserverThread(); // average tick time in nanoseconds
 	static std::vector<uint64_t> GetTickTimeNsUniverseThreads(); // average tick time in nanoseconds
 
+	bool IsPosInBounds(const VectorInt32Math &pos);
+
 private:
 	ParallelPhysics();
 
 	static int32_t GetCellPhotonIndex(const VectorInt32Math &unitVector);
-	bool IsPosInBounds(const VectorInt32Math &pos);
 	void AdjustSimulationBoxes();
 	void AdjustSizeByBounds(VectorInt32Math &size);
 
@@ -75,9 +76,6 @@ public:
 
 	static Observer* GetInstance();
 
-	void PPhTick();
-	void UE4Tick();
-
 	void ChangeOrientation(const SP_EyeState &eyeState);
 	SP_EyeColorArray GrabTexture();
 	VectorInt32Math GetPosition() const;
@@ -91,6 +89,12 @@ public:
 	void Echolocation();
 	void CalculateEyeState();
 
+	void MoveForward(uint8_t value);
+	void MoveBackward(uint8_t value);
+	void RotateLeft(uint8_t value);
+	void RotateRight(uint8_t value);
+	void RotateUp(uint8_t value);
+	void RotateDown(uint8_t value);
 private:
 	friend class ParallelPhysics;
 	void SetPosition(const VectorInt32Math &pos);
@@ -120,5 +124,7 @@ private:
 	int16_t m_latitude = 0;
 	int16_t m_longitude = 0;
 	uint16_t m_movingProgress = 0; //
+	uint16_t m_latitudeProgress = 0; //
+	uint16_t m_longitudeProgress = 0; //
 };
 }

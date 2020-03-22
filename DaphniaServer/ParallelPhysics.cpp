@@ -422,10 +422,16 @@ void ParallelPhysics::StartSimulation()
 			char buffer[64];
 			struct sockaddr_in from;
 			int fromlen = sizeof(from);
+			bool isStateAlreadySent = false;
 			while (recvfrom(socketS, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
 			{
 				if (QueryMessage<MsgGetState>(buffer))
 				{
+					if (isStateAlreadySent)
+					{
+						continue;
+					}
+					isStateAlreadySent = true;
 					MsgSendState msgSendState;
 					msgSendState.m_time = s_time;
 					sendto(socketS, msgSendState.GetBuffer(), sizeof(MsgSendState), 0, (sockaddr*)&from, fromlen);
@@ -449,9 +455,29 @@ void ParallelPhysics::StartSimulation()
 						}
 					}
 				}
-				else if (QueryMessage<MsgMoveForward>(buffer))
+				else if (auto *msg = QueryMessage<MsgMoveForward>(buffer))
 				{
-
+					Observer::GetInstance()->MoveForward(msg->m_value);
+				}
+				else if (auto *msg = QueryMessage<MsgMoveBackward>(buffer))
+				{
+					Observer::GetInstance()->MoveBackward(msg->m_value);
+				}
+				else if (auto *msg = QueryMessage<MsgRotateLeft>(buffer))
+				{
+					Observer::GetInstance()->RotateLeft(msg->m_value);
+				}
+				else if (auto *msg = QueryMessage<MsgRotateRight>(buffer))
+				{
+					Observer::GetInstance()->RotateRight(msg->m_value);
+				}
+				else if (auto *msg = QueryMessage<MsgRotateUp>(buffer))
+				{
+					Observer::GetInstance()->RotateUp(msg->m_value);
+				}
+				else if (auto *msg = QueryMessage<MsgRotateDown>(buffer))
+				{
+					Observer::GetInstance()->RotateDown(msg->m_value);
 				}
 			}
 			Observer::GetInstance()->Echolocation();
@@ -675,146 +701,6 @@ void Observer::Echolocation()
 	}
 }
 
-void Observer::PPhTick()
-{
-	--m_echolocationCounter;
-	if (m_echolocationCounter <= 0)
-	{ // emit photons
-		m_echolocationCounter = ECHOLOCATION_FREQUENCY;
-
-		SP_EyeState newEyeState;
-		newEyeState = std::atomic_load(&m_newEyeState);
-		if (newEyeState && m_eyeState != newEyeState)
-		{
-			m_eyeState = newEyeState;
-			CalculateOrientChangers(*m_eyeState);
-			ParallelPhysics::SetNeedUpdateSimulationBoxes();
-		}
-		const EyeArray &eyeArray = *m_eyeState;
-		{
-			int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-			int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-			Photon photon(eyeArray[ii][jj]);
-			photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
-			photon.m_color.m_colorA = 255;
-			ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-		}
-		{
-			int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-			int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-			Photon photon(eyeArray[ii][jj]);
-			photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
-			photon.m_color.m_colorA = 255;
-			ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-		}
-		{
-			int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-			int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-			Photon photon(eyeArray[ii][jj]);
-			photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
-			photon.m_color.m_colorA = 255;
-			ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-		}
-		{
-			int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-			int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-			Photon photon(eyeArray[ii][jj]);
-			photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
-			photon.m_color.m_colorA = 255;
-			ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-		}
-	}
-
-	// receive photons back
-	int isTimeOdd = s_time % 2;
-	EtherCell &cell = s_universe[m_position.m_posX][m_position.m_posY][m_position.m_posZ];
-	for (int ii = 0; ii < cell.m_photons[isTimeOdd].size(); ++ii)
-	{
-		Photon &photon = cell.m_photons[isTimeOdd][ii];
-		if (photon.m_color.m_colorA > 0)
-		{
-			int32_t yPos = photon.m_param / OBSERVER_EYE_SIZE;
-			int32_t xPos = photon.m_param - yPos * OBSERVER_EYE_SIZE;
-			m_eyeColorArray[xPos][yPos] = photon.m_color;
-			m_eyeUpdateTimeArray[xPos][yPos] = s_time;
-			photon.m_color = EtherColor::ZeroColor;
-		}
-	}
-
-	// update eye texture
-	if (GetTimeMs() - m_lastTextureUpdateTime > UPDATE_EYE_TEXTURE_OUT)
-	{
-		m_lastTextureUpdateTime = GetTimeMs();
-		SP_EyeColorArray spEyeColorArrayOut;
-		spEyeColorArrayOut = std::atomic_load(&m_spEyeColorArrayOut);
-		if (!spEyeColorArrayOut)
-		{
-			spEyeColorArrayOut = std::make_shared<EyeColorArray>();
-			EyeColorArray &eyeColorArray = *spEyeColorArrayOut;
-			for (int ii = 0; ii < eyeColorArray.size(); ++ii)
-			{
-				for (int jj = 0; jj < eyeColorArray[ii].size(); ++jj)
-				{
-					eyeColorArray[ii][jj] = m_eyeColorArray[ii][jj];
-					int64_t timeDiff = s_time - m_eyeUpdateTimeArray[ii][jj];
-					uint8_t alpha = m_eyeColorArray[ii][jj].m_colorA;
-					if (timeDiff < EYE_IMAGE_DELAY)
-					{
-						alpha = (uint8_t)(alpha * (EYE_IMAGE_DELAY - timeDiff) / EYE_IMAGE_DELAY);
-						eyeColorArray[ii][jj].m_colorA = alpha;
-					}
-					else
-					{
-						alpha = 0;
-						//eyeColorArray[ii][jj] = EtherColor::ZeroColor;
-						//eyeColorArray[ii][jj].m_colorA = 255;
-					}
-					eyeColorArray[ii][jj].m_colorA = alpha;
-				}
-			}
-			std::atomic_store(&m_spEyeColorArrayOut, spEyeColorArrayOut);
-		}
-	}
-}
-
-void Observer::UE4Tick()
-{
-
-	struct sockaddr_in serverInfo;
-	int len = sizeof(serverInfo);
-	serverInfo.sin_family = AF_INET;
-	serverInfo.sin_port = htons(1234);
-	serverInfo.sin_addr.s_addr = inet_addr("127.0.0.1");
-	static SOCKET socketC = 0;
-	if (!socketC)
-	{
-		socketC = socket(AF_INET, SOCK_DGRAM, 0);
-		u_long mode = 1;  // 1 to enable non-blocking socket
-		ioctlsocket(socketC, FIONBIO, &mode);
-	}
-	else
-	{
-		MsgGetState msg;
-		if (sendto(socketC, (const char*)&msg, sizeof(msg), 0, (sockaddr*)&serverInfo, len) != SOCKET_ERROR)
-		{
-			char buffer[MAX_PROTOCOL_BUFFER_SIZE];
-			while(recvfrom(socketC, buffer, sizeof(buffer), 0, (sockaddr*)&serverInfo, &len) > 0)
-			{
-				MsgSendState *msgSendState = QueryMessage<MsgSendState>(buffer);
-				if (msgSendState)
-				{
-					int ttyr = 0;
-				}
-				MsgSendPhoton *msgSendPhoton = QueryMessage<MsgSendPhoton>(buffer);
-				if (msgSendPhoton)
-				{
-					int ttyr = 0;
-				}
-			}
-		}
-	}
-}
-
 void Observer::ChangeOrientation(const SP_EyeState &eyeState)
 {
 	std::atomic_store(&m_newEyeState, eyeState);
@@ -897,6 +783,104 @@ void Observer::CalculateEyeState()
 		}
 	}
 	CalculateOrientChangers(*m_eyeState);
+}
+
+void Observer::MoveForward(uint8_t value)
+{
+	auto movingProgressTmp = m_movingProgress;
+	m_movingProgress += value;
+	if (movingProgressTmp > m_movingProgress)
+	{
+		VectorInt32Math pos = GetPosition();
+		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
+		VectorInt32Math nextPos = pos + unitVector;
+		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
+		{
+			SetNewPosition(nextPos);
+		}
+	}
+}
+
+void Observer::MoveBackward(uint8_t value)
+{
+	auto movingProgressTmp = m_movingProgress;
+	m_movingProgress -= value;
+	if (movingProgressTmp < m_movingProgress)
+	{
+		VectorInt32Math pos = GetPosition();
+		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
+		VectorInt32Math nextPos = pos - unitVector;
+		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
+		{
+			SetNewPosition(nextPos);
+		}
+	}
+}
+
+void Observer::RotateLeft(uint8_t value)
+{
+	auto movingProgressTmp = m_longitudeProgress;
+	m_longitudeProgress -= value;
+	if (movingProgressTmp < m_longitudeProgress)
+	{
+		--m_longitude;
+		if (m_longitude < -180)
+		{
+			m_longitude += 360;
+		}
+		CalculateEyeState();
+	}
+}
+
+void Observer::RotateRight(uint8_t value)
+{
+	auto movingProgressTmp = m_longitudeProgress;
+	m_longitudeProgress += value;
+	if (movingProgressTmp > m_longitudeProgress)
+	{
+		++m_longitude;
+		if (m_longitude > 180)
+		{
+			m_longitude -= 360;
+		}
+		CalculateEyeState();
+	}
+}
+
+void Observer::RotateUp(uint8_t value)
+{
+	auto movingProgressTmp = m_latitudeProgress;
+	m_latitudeProgress += value;
+	if (movingProgressTmp > m_latitudeProgress)
+	{
+		++m_latitude;
+		if (m_latitude > 90)
+		{
+			--m_latitude;
+		}
+		else
+		{
+			CalculateEyeState();
+		}
+	}
+}
+
+void Observer::RotateDown(uint8_t value)
+{
+	auto movingProgressTmp = m_latitudeProgress;
+	m_latitudeProgress -= value;
+	if (movingProgressTmp < m_latitudeProgress)
+	{
+		--m_latitude;
+		if (m_latitude < -90)
+		{
+			++m_latitude;
+		}
+		else
+		{
+			CalculateEyeState();
+		}
+	}
 }
 
 OrientationVectorMath Observer::GetOrientation() const
