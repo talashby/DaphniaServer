@@ -479,7 +479,7 @@ void ParallelPhysics::StartSimulation()
 				{
 					Observer::GetInstance()->RotateDown(msg->m_value);
 				}
-			}
+				}
 			Observer::GetInstance()->Echolocation();
 			++s_time;
 		}

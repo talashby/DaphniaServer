@@ -124,7 +124,7 @@ private:
 	int16_t m_latitude = 0;
 	int16_t m_longitude = 0;
 	uint16_t m_movingProgress = 0; //
-	uint16_t m_latitudeProgress = 0; //
-	uint16_t m_longitudeProgress = 0; //
+	uint8_t m_latitudeProgress = 0; //
+	uint8_t m_longitudeProgress = 0; //
 };
 }
