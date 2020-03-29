@@ -434,6 +434,8 @@ void ParallelPhysics::StartSimulation()
 					isStateAlreadySent = true;
 					MsgSendState msgSendState;
 					msgSendState.m_time = s_time;
+					msgSendState.m_latitude = Observer::GetInstance()->m_latitude;
+					msgSendState.m_longitude = Observer::GetInstance()->m_longitude;
 					sendto(socketS, msgSendState.GetBuffer(), sizeof(MsgSendState), 0, (sockaddr*)&from, fromlen);
 					// receive photons back
 					int isTimeOdd = (s_time+1) % 2;
@@ -668,34 +670,34 @@ void Observer::Echolocation()
 {
 	const EyeArray &eyeArray = *m_eyeState;
 	{
-		int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[ii][jj]);
-		photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
+		Photon photon(eyeArray[yy][xx]);
+		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
 		photon.m_color.m_colorA = 255;
 		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
 	}
 	{
-		int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[ii][jj]);
-		photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
+		Photon photon(eyeArray[yy][xx]);
+		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
 		photon.m_color.m_colorA = 255;
 		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
 	}
 	{
-		int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[ii][jj]);
-		photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
+		Photon photon(eyeArray[yy][xx]);
+		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
 		photon.m_color.m_colorA = 255;
 		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
 	}
 	{
-		int32_t ii = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		int32_t jj = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[ii][jj]);
-		photon.m_param = ii + jj * OBSERVER_EYE_SIZE;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
+		Photon photon(eyeArray[yy][xx]);
+		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
 		photon.m_color.m_colorA = 255;
 		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
 	}
@@ -750,27 +752,45 @@ void Observer::CalculateEyeState()
 
 	float len = EYE_FOV / OBSERVER_EYE_SIZE;
 
-	for (int32_t ii = 0; ii < OBSERVER_EYE_SIZE; ++ii)
+	for (int32_t yy = 0; yy < OBSERVER_EYE_SIZE; ++yy)
 	{
-		for (int32_t jj = 0; jj < OBSERVER_EYE_SIZE; ++jj)
+		for (int32_t xx = 0; xx < OBSERVER_EYE_SIZE; ++xx)
 		{
 
-			int16_t latitude = m_latitude + EYE_FOV * ii / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			int16_t longitude = m_longitude + EYE_FOV * jj / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			longitude = longitude < -180 ? 360 + longitude : longitude;
-			longitude = longitude > 180 ? -360 + longitude : longitude;
+			int16_t latitude = m_latitude + EYE_FOV * yy / OBSERVER_EYE_SIZE - EYE_FOV / 2;
+			int16_t longitude = 0;
 			if (latitude < - 90)
 			{
-				latitude = -180 + latitude;
+				latitude = -180 - latitude;
 				longitude -= 180;
-				longitude = longitude < -180 ? 360 + longitude : longitude;
+				longitude = longitude < -179 ? 360 + longitude : longitude;
 			}
 			else if (latitude > 90)
 			{
 				latitude = 180 - latitude;
-				longitude -= 180;
-				longitude = longitude < -180 ? 360 + longitude : longitude;
+				longitude = m_longitude + EYE_FOV / 2 - EYE_FOV * xx / OBSERVER_EYE_SIZE;
+				longitude = longitude < -179 ? 360 + longitude : longitude;
+				longitude = longitude > 180 ? -360 + longitude : longitude;
+				longitude = longitude - 180;
+				longitude = longitude < -179 ? 360 + longitude : longitude;
+				//longitude = 180 - longitude;
+				//longitude = longitude > 180 ? -360 + longitude : longitude;
+				//longitude = longitude < -179 ? 360 + longitude : longitude;
 			}
+			else
+			{
+				longitude = m_longitude + EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
+				longitude = longitude < -179 ? 360 + longitude : longitude;
+				longitude = longitude > 180 ? -360 + longitude : longitude;
+			}
+
+
+
+			int16_t latitudeDownFactor = abs(EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2) * latitude / 180;
+			latitude -= latitudeDownFactor;
+			assert(latitude <= 90);
+			assert(latitude >= -90);
+
 
 			VectorFloatMath orientFloat;
 			float pi = 3.1415927410125732421875f;
@@ -779,7 +799,7 @@ void Observer::CalculateEyeState()
 			orientFloat.m_posZ = sinf(latitude * pi / 180);
 
 			OrientationVectorMath orient  = MaximizePPhOrientation(orientFloat);
-			eyeArray[ii][jj] = orient;
+			eyeArray[yy][xx] = orient;
 		}
 	}
 	CalculateOrientChangers(*m_eyeState);
@@ -824,7 +844,7 @@ void Observer::RotateLeft(uint8_t value)
 	if (movingProgressTmp < m_longitudeProgress)
 	{
 		--m_longitude;
-		if (m_longitude < -180)
+		if (m_longitude < -179)
 		{
 			m_longitude += 360;
 		}
@@ -956,16 +976,16 @@ void Observer::CalculateOrientChangers(const EyeArray &eyeArray)
 {
 	OrientationVectorMath orientMin(OrientationVectorMath::PPH_INT_MAX, OrientationVectorMath::PPH_INT_MAX, OrientationVectorMath::PPH_INT_MAX);
 	OrientationVectorMath orientMax(OrientationVectorMath::PPH_INT_MIN, OrientationVectorMath::PPH_INT_MIN, OrientationVectorMath::PPH_INT_MIN);
-	for (int ii = 0; ii < eyeArray.size(); ++ii)
+	for (int yy = 0; yy < eyeArray.size(); ++yy)
 	{
-		for (int jj = 0; jj < eyeArray[ii].size(); ++jj)
+		for (int xx = 0; xx < eyeArray[yy].size(); ++xx)
 		{
-			orientMin.m_posX = std::min(orientMin.m_posX, eyeArray[ii][jj].m_posX);
-			orientMin.m_posY = std::min(orientMin.m_posY, eyeArray[ii][jj].m_posY);
-			orientMin.m_posZ = std::min(orientMin.m_posZ, eyeArray[ii][jj].m_posZ);
-			orientMax.m_posX = std::max(orientMax.m_posX, eyeArray[ii][jj].m_posX);
-			orientMax.m_posY = std::max(orientMax.m_posY, eyeArray[ii][jj].m_posY);
-			orientMax.m_posZ = std::max(orientMax.m_posZ, eyeArray[ii][jj].m_posZ);
+			orientMin.m_posX = std::min(orientMin.m_posX, eyeArray[yy][xx].m_posX);
+			orientMin.m_posY = std::min(orientMin.m_posY, eyeArray[yy][xx].m_posY);
+			orientMin.m_posZ = std::min(orientMin.m_posZ, eyeArray[yy][xx].m_posZ);
+			orientMax.m_posX = std::max(orientMax.m_posX, eyeArray[yy][xx].m_posX);
+			orientMax.m_posY = std::max(orientMax.m_posY, eyeArray[yy][xx].m_posY);
+			orientMax.m_posZ = std::max(orientMax.m_posZ, eyeArray[yy][xx].m_posZ);
 		}
 	}
 
