@@ -388,9 +388,15 @@ void ParallelPhysics::StartSimulation()
 			//s_waitThreadsCount = m_threadsCount + 1; // universe threads and observer thread
 			if (Observer::GetInstance()->GetPosition() != Observer::GetInstance()->GetNewPosition())
 			{
-				GetInstance()->InitEtherCell(Observer::GetInstance()->GetNewPosition(), EtherType::Observer);
+				VectorInt32Math newPos = Observer::GetInstance()->GetNewPosition();
+				EtherCell &cell = s_universe[newPos.m_posX][newPos.m_posY][newPos.m_posZ];
+				if (cell.m_type == EtherType::Crumb)
+				{
+					Observer::GetInstance()->IncEatenCrumb();
+				}
+				GetInstance()->InitEtherCell(newPos, EtherType::Observer);
 				GetInstance()->InitEtherCell(Observer::GetInstance()->GetPosition(), EtherType::Space);
-				Observer::GetInstance()->SetPosition(Observer::GetInstance()->GetNewPosition());
+				Observer::GetInstance()->SetPosition(newPos);
 				SetNeedUpdateSimulationBoxes();
 			}
 			if (m_bSimulateNearObserver && s_bNeedUpdateSimulationBoxes)
@@ -436,6 +442,15 @@ void ParallelPhysics::StartSimulation()
 					msgSendState.m_time = s_time;
 					msgSendState.m_latitude = Observer::GetInstance()->m_latitude;
 					msgSendState.m_longitude = Observer::GetInstance()->m_longitude;
+					if (Observer::GetInstance()->DecEatenCrumb())
+					{
+						msgSendState.m_isEatenCrumb = true;
+					}
+					else
+					{
+						msgSendState.m_isEatenCrumb = false;
+					}
+					
 					sendto(socketS, msgSendState.GetBuffer(), sizeof(MsgSendState), 0, (sockaddr*)&from, fromlen);
 					// receive photons back
 					int isTimeOdd = (s_time+1) % 2;
@@ -759,16 +774,20 @@ void Observer::CalculateEyeState()
 
 			int16_t latitude = m_latitude + EYE_FOV * yy / OBSERVER_EYE_SIZE - EYE_FOV / 2;
 			int16_t longitude = 0;
+			int16_t longitudeShift = EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
 			if (latitude < - 90)
 			{
 				latitude = -180 - latitude;
-				longitude -= 180;
+				longitude = m_longitude - longitudeShift;
+				longitude = longitude < -179 ? 360 + longitude : longitude;
+				longitude = longitude > 180 ? -360 + longitude : longitude;
+				longitude = longitude - 180;
 				longitude = longitude < -179 ? 360 + longitude : longitude;
 			}
 			else if (latitude > 90)
 			{
 				latitude = 180 - latitude;
-				longitude = m_longitude + EYE_FOV / 2 - EYE_FOV * xx / OBSERVER_EYE_SIZE;
+				longitude = m_longitude - longitudeShift;
 				longitude = longitude < -179 ? 360 + longitude : longitude;
 				longitude = longitude > 180 ? -360 + longitude : longitude;
 				longitude = longitude - 180;
@@ -779,21 +798,21 @@ void Observer::CalculateEyeState()
 			}
 			else
 			{
-				longitude = m_longitude + EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
+				longitude = m_longitude + longitudeShift;
 				longitude = longitude < -179 ? 360 + longitude : longitude;
 				longitude = longitude > 180 ? -360 + longitude : longitude;
 			}
 
+			float pi = 3.1415927410125732421875f;
 
-
-			int16_t latitudeDownFactor = abs(EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2) * latitude / 180;
+			int16_t latitudeDownFactor = (int16_t)(abs(longitudeShift) * sinf(latitude * pi / 180));
+			//int16_t latitudeDownFactor = abs(longitudeShift) * latitude / 180;
 			latitude -= latitudeDownFactor;
 			assert(latitude <= 90);
 			assert(latitude >= -90);
 
 
 			VectorFloatMath orientFloat;
-			float pi = 3.1415927410125732421875f;
 			orientFloat.m_posX = cosf(latitude * pi / 180) * cosf(longitude * pi / 180);
 			orientFloat.m_posY = cosf(latitude * pi / 180) * sinf(longitude * pi / 180);
 			orientFloat.m_posZ = sinf(latitude * pi / 180);
@@ -901,6 +920,21 @@ void Observer::RotateDown(uint8_t value)
 			CalculateEyeState();
 		}
 	}
+}
+
+void Observer::IncEatenCrumb()
+{
+	++m_eatenCrumb;
+}
+
+bool Observer::DecEatenCrumb()
+{
+	if (m_eatenCrumb > 0)
+	{
+		--m_eatenCrumb;
+		return true;
+	}
+	return false;
 }
 
 OrientationVectorMath Observer::GetOrientation() const
