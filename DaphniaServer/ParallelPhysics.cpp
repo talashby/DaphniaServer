@@ -496,6 +496,52 @@ void ParallelPhysics::StartSimulation()
 				{
 					Observer::GetInstance()->RotateDown(msg->m_value);
 				}
+				else if (auto *msg = QueryMessage<MsgAdminGetNextCrumb>(buffer))
+				{
+					static int32_t s_posX = 0;
+					static int32_t s_posY = 0;
+					static int32_t s_posZ = 0;
+					bool isMsgSend = false;
+					for (; s_posX < s_universe.size(); ++s_posX)
+					{
+						if (isMsgSend)
+						{
+							break;
+						}
+						for (; s_posY < s_universe[s_posX].size(); ++s_posY)
+						{
+							if (isMsgSend)
+							{
+								break;
+							}
+							for (; s_posZ < s_universe[s_posX][s_posY].size(); ++s_posZ)
+							{
+								if (isMsgSend)
+								{
+									break;
+								}
+								auto &cell = s_universe[s_posX][s_posY][s_posZ];
+								if (cell.m_type == EtherType::Crumb)
+								{
+									MsgAdminSendNextCrumb msg;
+									msg.m_color = cell.m_color;
+									msg.m_posX = s_posX;
+									msg.m_posY = s_posY;
+									msg.m_posZ = s_posZ;
+									sendto(socketS, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&from, fromlen);
+									isMsgSend = true;
+								}
+							}
+						}
+					}
+					if (!isMsgSend)
+					{
+						MsgAdminSendNextCrumb msg;
+						msg.m_color = EtherColor::ZeroColor;
+						msg.m_posX = msg.m_posY = msg.m_posZ = -1;
+						sendto(socketS, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&from, fromlen);
+					}
+				}
 				}
 			Observer::GetInstance()->Echolocation();
 			++s_time;
@@ -592,15 +638,15 @@ VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const Orienta
 	VectorInt32Math unitVector = VectorInt32Math::ZeroVector;
 	if (std::abs(orient.m_posX) >= OrientationVectorMath::GetRandomNumber())
 	{
-		unitVector.m_posX = OrientationVectorMath::Sign(orient.m_posX);
+		unitVector.m_posX = Sign(orient.m_posX);
 	}
 	if (std::abs(orient.m_posY) >= OrientationVectorMath::GetRandomNumber())
 	{
-		unitVector.m_posY = OrientationVectorMath::Sign(orient.m_posY);
+		unitVector.m_posY = Sign(orient.m_posY);
 	}
 	if (std::abs(orient.m_posZ) >= OrientationVectorMath::GetRandomNumber())
 	{
-		unitVector.m_posZ = OrientationVectorMath::Sign(orient.m_posZ);
+		unitVector.m_posZ = Sign(orient.m_posZ);
 	}
 
 	return unitVector;
@@ -775,26 +821,14 @@ void Observer::CalculateEyeState()
 			int16_t latitude = m_latitude + EYE_FOV * yy / OBSERVER_EYE_SIZE - EYE_FOV / 2;
 			int16_t longitude = 0;
 			int16_t longitudeShift = EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			if (latitude < - 90)
+			if (latitude < - 90 || latitude > 90)
 			{
-				latitude = -180 - latitude;
+				latitude = Sign(latitude)*180 - latitude;
 				longitude = m_longitude - longitudeShift;
 				longitude = longitude < -179 ? 360 + longitude : longitude;
 				longitude = longitude > 180 ? -360 + longitude : longitude;
 				longitude = longitude - 180;
 				longitude = longitude < -179 ? 360 + longitude : longitude;
-			}
-			else if (latitude > 90)
-			{
-				latitude = 180 - latitude;
-				longitude = m_longitude - longitudeShift;
-				longitude = longitude < -179 ? 360 + longitude : longitude;
-				longitude = longitude > 180 ? -360 + longitude : longitude;
-				longitude = longitude - 180;
-				longitude = longitude < -179 ? 360 + longitude : longitude;
-				//longitude = 180 - longitude;
-				//longitude = longitude > 180 ? -360 + longitude : longitude;
-				//longitude = longitude < -179 ? 360 + longitude : longitude;
 			}
 			else
 			{
