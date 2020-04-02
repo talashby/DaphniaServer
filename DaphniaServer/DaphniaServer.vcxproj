@@ -151,11 +151,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AdminTcp.cpp" />
     <ClCompile Include="DaphniaServer.cpp" />
     <ClCompile Include="ParallelPhysics.cpp" />
     <ClCompile Include="PPhHelpers.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AdminProtocol.h" />
+    <ClInclude Include="AdminTcp.h" />
     <ClInclude Include="ParallelPhysics.h" />
     <ClInclude Include="PPhHelpers.h" />
     <ClInclude Include="ServerProtocol.h" />

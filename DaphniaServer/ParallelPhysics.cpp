@@ -10,7 +10,9 @@
 #include "fstream"
 #include "atomic"
 #include "chrono"
+#include "AdminProtocol.h"
 #include "ServerProtocol.h"
+#include "AdminTcp.h"
 #include <assert.h>
 
 #undef UNICODE
@@ -131,6 +133,8 @@ bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsC
 			beginX = endX;
 		}
 
+		static std::thread s_adminTcpThread;
+		s_adminTcpThread = std::thread(AdminTcpThread);
 		return true;
 	}
 	return false;
@@ -334,7 +338,7 @@ void ParallelPhysics::StartSimulation()
 		SOCKET socketS;
 		struct sockaddr_in local;
 		local.sin_family = AF_INET;
-		local.sin_port = htons(1234);
+		local.sin_port = htons(CLIENT_UDP_PORT);
 		local.sin_addr.s_addr = INADDR_ANY;
 		socketS = socket(AF_INET, SOCK_DGRAM, 0);
 		bind(socketS, (sockaddr*)&local, sizeof(local));
@@ -496,52 +500,6 @@ void ParallelPhysics::StartSimulation()
 				{
 					Observer::GetInstance()->RotateDown(msg->m_value);
 				}
-				else if (auto *msg = QueryMessage<MsgAdminGetNextCrumb>(buffer))
-				{
-					static int32_t s_posX = 0;
-					static int32_t s_posY = 0;
-					static int32_t s_posZ = 0;
-					bool isMsgSend = false;
-					for (; s_posX < s_universe.size(); ++s_posX)
-					{
-						if (isMsgSend)
-						{
-							break;
-						}
-						for (; s_posY < s_universe[s_posX].size(); ++s_posY)
-						{
-							if (isMsgSend)
-							{
-								break;
-							}
-							for (; s_posZ < s_universe[s_posX][s_posY].size(); ++s_posZ)
-							{
-								if (isMsgSend)
-								{
-									break;
-								}
-								auto &cell = s_universe[s_posX][s_posY][s_posZ];
-								if (cell.m_type == EtherType::Crumb)
-								{
-									MsgAdminSendNextCrumb msg;
-									msg.m_color = cell.m_color;
-									msg.m_posX = s_posX;
-									msg.m_posY = s_posY;
-									msg.m_posZ = s_posZ;
-									sendto(socketS, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&from, fromlen);
-									isMsgSend = true;
-								}
-							}
-						}
-					}
-					if (!isMsgSend)
-					{
-						MsgAdminSendNextCrumb msg;
-						msg.m_color = EtherColor::ZeroColor;
-						msg.m_posX = msg.m_posY = msg.m_posZ = -1;
-						sendto(socketS, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&from, fromlen);
-					}
-				}
 				}
 			Observer::GetInstance()->Echolocation();
 			++s_time;
@@ -591,6 +549,43 @@ bool ParallelPhysics::IsPosInBounds(const VectorInt32Math &pos)
 		return false;
 	}
 	return true;
+}
+
+bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & outCrumbColor)
+{
+	static int32_t s_posX = 0;
+	static int32_t s_posY = 0;
+	static int32_t s_posZ = 0;
+	bool bResult = false;
+	for (; s_posX < s_universe.size(); ++s_posX)
+	{
+		if (bResult)
+		{
+			break;
+		}
+		for (; s_posY < s_universe[s_posX].size(); ++s_posY)
+		{
+			if (bResult)
+			{
+				break;
+			}
+			for (; s_posZ < s_universe[s_posX][s_posY].size(); ++s_posZ)
+			{
+				if (bResult)
+				{
+					break;
+				}
+				auto &cell = s_universe[s_posX][s_posY][s_posZ];
+				if (cell.m_type == EtherType::Crumb)
+				{
+					outCrumbPos = VectorInt32Math(s_posX, s_posY, s_posZ);
+					outCrumbColor = cell.m_color;
+					bResult = true;
+				}
+			}
+		}
+	}
+	return bResult;
 }
 
 void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)

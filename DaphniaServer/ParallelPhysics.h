@@ -45,6 +45,7 @@ public:
 	static std::vector<uint64_t> GetTickTimeNsUniverseThreads(); // average tick time in nanoseconds
 
 	bool IsPosInBounds(const VectorInt32Math &pos);
+	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);
 
 private:
 	ParallelPhysics();

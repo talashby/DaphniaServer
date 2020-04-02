@@ -24,6 +24,9 @@
     <ClCompile Include="PPhHelpers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AdminTcp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ParallelPhysics.h">
@@ -33,6 +36,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="ServerProtocol.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AdminTcp.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AdminProtocol.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
