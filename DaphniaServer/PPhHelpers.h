@@ -115,6 +115,11 @@ namespace PPh
 			struct { uint8_t m_colorB, m_colorG, m_colorR, m_colorA; };
 			uint32_t AlignmentDummy;
 		};
+
+		__forceinline bool operator==(const EtherColor& V) const
+		{
+			return m_colorB == V.m_colorB && m_colorG == V.m_colorG && m_colorR == V.m_colorR && m_colorA == V.m_colorA;
+		}
 	};
 
 	int64_t GetTimeMs();

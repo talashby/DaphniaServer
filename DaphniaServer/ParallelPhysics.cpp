@@ -557,18 +557,10 @@ bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & o
 	static int32_t s_posY = 0;
 	static int32_t s_posZ = 0;
 	bool bResult = false;
-	for (; s_posX < s_universe.size(); ++s_posX)
+	for (; s_posX < s_universe.size(); ++s_posX, s_posY=0)
 	{
-		if (bResult)
+		for (; s_posY < s_universe[s_posX].size(); ++s_posY, s_posZ=0)
 		{
-			break;
-		}
-		for (; s_posY < s_universe[s_posX].size(); ++s_posY)
-		{
-			if (bResult)
-			{
-				break;
-			}
 			for (; s_posZ < s_universe[s_posX][s_posY].size(); ++s_posZ)
 			{
 				if (bResult)
@@ -583,7 +575,21 @@ bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & o
 					bResult = true;
 				}
 			}
+			if (bResult)
+			{
+				break;
+			}
 		}
+		if (bResult)
+		{
+			break;
+		}
+	}
+	if (!bResult)
+	{
+		s_posX = 0;
+		s_posY = 0;
+		s_posZ = 0;
 	}
 	return bResult;
 }

@@ -94,7 +94,7 @@ void AdminTcpThread()
 			WSACleanup();
 			return;
 		}
-
+		printf("AdminTcp connected\n");
 		// No longer need server socket
 		closesocket(ListenSocket);
 
@@ -129,7 +129,7 @@ void AdminTcpThread()
 			}
 			else if (iResult == 0)
 			{
-				//printf("Connection closing...\n");
+				printf("AdminTcp connection closed\n");
 			}
 			else
 			{
