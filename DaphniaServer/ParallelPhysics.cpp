@@ -396,7 +396,7 @@ void ParallelPhysics::StartSimulation()
 				EtherCell &cell = s_universe[newPos.m_posX][newPos.m_posY][newPos.m_posZ];
 				if (cell.m_type == EtherType::Crumb)
 				{
-					Observer::GetInstance()->IncEatenCrumb();
+					Observer::GetInstance()->IncEatenCrumb(newPos);
 				}
 				GetInstance()->InitEtherCell(newPos, EtherType::Observer);
 				GetInstance()->InitEtherCell(Observer::GetInstance()->GetPosition(), EtherType::Space);
@@ -442,20 +442,10 @@ void ParallelPhysics::StartSimulation()
 						continue;
 					}
 					isStateAlreadySent = true;
-					MsgSendState msgSendState;
+					MsgGetStateResponse msgSendState;
 					msgSendState.m_time = s_time;
-					msgSendState.m_latitude = Observer::GetInstance()->m_latitude;
-					msgSendState.m_longitude = Observer::GetInstance()->m_longitude;
-					if (Observer::GetInstance()->DecEatenCrumb())
-					{
-						msgSendState.m_isEatenCrumb = true;
-					}
-					else
-					{
-						msgSendState.m_isEatenCrumb = false;
-					}
 					
-					sendto(socketS, msgSendState.GetBuffer(), sizeof(MsgSendState), 0, (sockaddr*)&from, fromlen);
+					sendto(socketS, msgSendState.GetBuffer(), sizeof(msgSendState), 0, (sockaddr*)&from, fromlen);
 					// receive photons back
 					int isTimeOdd = (s_time+1) % 2;
 					auto position = Observer::GetInstance()->GetPosition();
@@ -475,6 +465,18 @@ void ParallelPhysics::StartSimulation()
 							photon.m_color = EtherColor::ZeroColor;
 						}
 					}
+				}
+				else if (auto *msg = QueryMessage<MsgGetStateExt>(buffer))
+				{
+					MsgGetStateExtResponse msgSendState;
+					msgSendState.m_latitude = Observer::GetInstance()->m_latitude;
+					msgSendState.m_longitude = Observer::GetInstance()->m_longitude;
+					msgSendState.m_pos = Observer::GetInstance()->GetPosition();
+					msgSendState.m_movingProgress = Observer::GetInstance()->m_movingProgress;
+					msgSendState.m_eatenCrumbNum = Observer::GetInstance()->m_eatenCrumbNum;
+					msgSendState.m_eatenCrumbPos = Observer::GetInstance()->m_eatenCrumbPos;
+
+					sendto(socketS, msgSendState.GetBuffer(), sizeof(msgSendState), 0, (sockaddr*)&from, fromlen);
 				}
 				else if (auto *msg = QueryMessage<MsgMoveForward>(buffer))
 				{
@@ -957,19 +959,9 @@ void Observer::RotateDown(uint8_t value)
 	}
 }
 
-void Observer::IncEatenCrumb()
+void Observer::IncEatenCrumb(const VectorInt32Math &pos)
 {
-	++m_eatenCrumb;
-}
-
-bool Observer::DecEatenCrumb()
-{
-	if (m_eatenCrumb > 0)
-	{
-		--m_eatenCrumb;
-		return true;
-	}
-	return false;
+	++m_eatenCrumbNum;
 }
 
 OrientationVectorMath Observer::GetOrientation() const

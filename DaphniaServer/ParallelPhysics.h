@@ -97,8 +97,7 @@ public:
 	void RotateUp(uint8_t value);
 	void RotateDown(uint8_t value);
 
-	void IncEatenCrumb();
-	bool DecEatenCrumb();
+	void IncEatenCrumb(const VectorInt32Math &pos);
 
 private:
 	friend class ParallelPhysics;
@@ -132,6 +131,7 @@ private:
 	uint8_t m_latitudeProgress = 0; //
 	uint8_t m_longitudeProgress = 0; //
 
-	int16_t m_eatenCrumb = 0;
+	int16_t m_eatenCrumbNum = 0;
+	VectorInt32Math m_eatenCrumbPos = VectorInt32Math::ZeroVector;
 };
 }
