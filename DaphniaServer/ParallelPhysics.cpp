@@ -820,11 +820,10 @@ void Observer::CalculateEyeState()
 	{
 		for (int32_t xx = 0; xx < OBSERVER_EYE_SIZE; ++xx)
 		{
-
 			int16_t latitude = m_latitude + EYE_FOV * yy / OBSERVER_EYE_SIZE - EYE_FOV / 2;
 			int16_t longitude = 0;
 			int16_t longitudeShift = EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			if (latitude < - 90 || latitude > 90)
+			if (latitude < -90 || latitude > 90)
 			{
 				latitude = Sign(latitude)*180 - latitude;
 				longitude = m_longitude - longitudeShift;
@@ -1067,6 +1066,7 @@ void Observer::CalculateOrientChangers(const EyeArray &eyeArray)
 			m_orientMaxChanger.m_posArray[ii] = 0;
 		}
 	}
+	ParallelPhysics::GetInstance()->SetNeedUpdateSimulationBoxes();
 }
 
 }

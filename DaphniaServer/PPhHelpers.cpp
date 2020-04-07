@@ -173,7 +173,7 @@ VectorFloatMath::VectorFloatMath(float posX, float posY, float posZ) : VectorMat
 BoxIntMath::BoxIntMath(const VectorInt32Math &minVector, const VectorInt32Math &maxVector) : m_minVector(minVector), m_maxVector(maxVector)
 {}
 
-EtherColor::EtherColor(uint8_t colorR, uint8_t colorG, uint8_t colorB) : m_colorB(colorR), m_colorG(colorG), m_colorR(colorB), m_colorA(0)
+EtherColor::EtherColor(uint8_t colorR, uint8_t colorG, uint8_t colorB) : m_colorB(colorB), m_colorG(colorG), m_colorR(colorR), m_colorA(0)
 {}
 
 const PPh::EtherColor EtherColor::ZeroColor(0, 0, 0);
