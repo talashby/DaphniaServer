@@ -4,7 +4,10 @@
 
 #pragma pack(push, 1)
 
-#define CLIENT_UDP_PORT 27016
+#define PROTOCOL_VERSION 1
+
+#define CLIENT_UDP_PORT_START 50000
+#define MAX_CLIENTS 10
 
 namespace PPh
 {
@@ -24,6 +27,7 @@ namespace MsgType
 		MoveBackward,
 		// server to client
 		GetVersionResponse,
+		SocketBusyByAnotherObserver,
 		GetStateResponse,
 		GetStateExtResponse,
 		SendPhoton
@@ -40,6 +44,13 @@ public:
 //**************************************************************************************
 //************************************** Client ****************************************
 //**************************************************************************************
+class MsgGetVersion : public MsgBase
+{
+public:
+	MsgGetVersion() : MsgBase(GetType()) {}
+	static uint8_t GetType() { return MsgType::GetVersion; }
+};
+
 class MsgGetState : public MsgBase
 {
 public:
@@ -110,6 +121,21 @@ public:
 //**************************************************************************************
 //************************************** Server ****************************************
 //**************************************************************************************
+class MsgGetVersionResponse : public MsgBase
+{
+public:
+	MsgGetVersionResponse() : MsgBase(GetType()) {}
+	static uint8_t GetType() { return MsgType::GetVersionResponse; }
+	uint32_t m_version;
+};
+
+class MsgSocketBusyByAnotherObserver : public MsgBase
+{
+public:
+	MsgSocketBusyByAnotherObserver() : MsgBase(GetType()) {}
+	static uint8_t GetType() { return MsgType::SocketBusyByAnotherObserver; }
+};
+
 class MsgGetStateResponse : public MsgBase
 {
 public:

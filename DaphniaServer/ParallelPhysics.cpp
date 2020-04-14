@@ -338,7 +338,7 @@ void ParallelPhysics::StartSimulation()
 		SOCKET socketS;
 		struct sockaddr_in local;
 		local.sin_family = AF_INET;
-		local.sin_port = htons(CLIENT_UDP_PORT);
+		local.sin_port = htons(CLIENT_UDP_PORT_START);
 		local.sin_addr.s_addr = INADDR_ANY;
 		socketS = socket(AF_INET, SOCK_DGRAM, 0);
 		bind(socketS, (sockaddr*)&local, sizeof(local));
@@ -350,8 +350,8 @@ void ParallelPhysics::StartSimulation()
 		threads.resize(m_threadsCount);
 
 		s_waitThreadsCount = m_threadsCount;
-		//s_waitThreadsCount = m_threadsCount + 1; // universe threads and observer thread
-/*		std::thread observerThread = std::thread([this]()
+		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+		std::thread observersThread = std::thread([this]()
 		{
 			while (m_isSimulationRunning)
 			{
@@ -370,7 +370,7 @@ void ParallelPhysics::StartSimulation()
 				}
 			}
 			--s_waitThreadsCount;
-		});*/
+		});
 
 		if (m_bSimulateNearObserver)
 		{
@@ -862,6 +862,13 @@ void Observer::CalculateEyeState()
 
 void Observer::MoveForward(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_movingProgress;
 	m_movingProgress += value;
 	if (movingProgressTmp > m_movingProgress)
@@ -878,6 +885,13 @@ void Observer::MoveForward(uint8_t value)
 
 void Observer::MoveBackward(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_movingProgress;
 	m_movingProgress -= value;
 	if (movingProgressTmp < m_movingProgress)
@@ -894,6 +908,13 @@ void Observer::MoveBackward(uint8_t value)
 
 void Observer::RotateLeft(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_longitudeProgress;
 	m_longitudeProgress -= value;
 	if (movingProgressTmp < m_longitudeProgress)
@@ -909,6 +930,13 @@ void Observer::RotateLeft(uint8_t value)
 
 void Observer::RotateRight(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_longitudeProgress;
 	m_longitudeProgress += value;
 	if (movingProgressTmp > m_longitudeProgress)
@@ -924,6 +952,13 @@ void Observer::RotateRight(uint8_t value)
 
 void Observer::RotateUp(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_latitudeProgress;
 	m_latitudeProgress += value;
 	if (movingProgressTmp > m_latitudeProgress)
@@ -942,6 +977,13 @@ void Observer::RotateUp(uint8_t value)
 
 void Observer::RotateDown(uint8_t value)
 {
+	static int64_t lastActionTime = 0;
+	if (lastActionTime == s_time)
+	{
+		return; // skip
+	}
+	lastActionTime = s_time;
+
 	auto movingProgressTmp = m_latitudeProgress;
 	m_latitudeProgress -= value;
 	if (movingProgressTmp < m_latitudeProgress)
