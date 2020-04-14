@@ -14,6 +14,7 @@
 #include "ServerProtocol.h"
 #include "AdminTcp.h"
 #include <assert.h>
+#include "Observer.h"
 
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
@@ -36,6 +37,14 @@ std::atomic<uint64_t> s_time = 0; // absolute universe time
 std::atomic<int32_t> s_waitThreadsCount = 0; // thread synchronization variable
 std::vector<BoxIntMath> s_threadSimulateBounds; // [minVector; maxVector)
 std::atomic<bool> s_bNeedUpdateSimulationBoxes;
+
+struct ObserverCell
+{
+	ObserverCell(Observer *observer, const VectorInt32Math &position) : m_observer(observer), m_position(position) {}
+	Observer *m_observer;
+	VectorInt32Math m_position;
+};
+std::vector<ObserverCell> s_observers;
 
 // stats
 uint64_t s_quantumOfTimePerSecond = 0;
@@ -326,6 +335,8 @@ void ParallelPhysics::AdjustSimulationBoxes()
 std::thread s_simulationThread;
 void ParallelPhysics::StartSimulation()
 {
+	
+	s_observers.push_back(ObserverCell(new Observer(0), )
 	// init sockets
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -608,6 +619,22 @@ void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)
 	size.m_posZ = std::min(universeSize.m_posZ, size.m_posZ);
 }
 
+PPh::VectorInt32Math ParallelPhysics::GetRandomEmptyCell() const
+{
+	for (int ii=0; ii<10000; ++ii)
+	{
+		int32_t posX = Rand32(m_universeSize.m_posX);
+		int32_t posY = Rand32(m_universeSize.m_posY);
+		int32_t posZ = Rand32(m_universeSize.m_posZ);
+		if (s_universe[posX][posY][posZ].m_type == EtherType::Space)
+		{
+			return VectorInt32Math(posX, posY, posZ);
+		}
+	}
+	assert(false);
+	return VectorInt32Math::ZeroVector;
+}
+
 bool ParallelPhysics::InitEtherCell(const VectorInt32Math &pos, EtherType::EEtherType type, const EtherColor &color)
 {
 	if (s_universe.size() > pos.m_posX)
@@ -705,410 +732,5 @@ std::vector<uint64_t> ParallelPhysics::GetTickTimeNsUniverseThreads()
 	return s_TickTimeNsAverageUniverseThreads;
 }
 
-Observer* s_observer = nullptr;
-
-void Observer::Init(const VectorInt32Math &position, const SP_EyeState &eyeState)
-{
-	if (s_observer)
-	{
-		delete s_observer;
-	}
-	s_observer = new Observer();
-	s_observer->m_position = position;
-	s_observer->m_newPosition = position;
-	//s_observer->m_eyeState = eyeState;
-	//s_observer->CalculateOrientChangers(*eyeState);
-	ParallelPhysics::GetInstance()->InitEtherCell(position, EtherType::Observer);
-	s_observer->m_lastTextureUpdateTime = GetTimeMs();
-	s_observer->m_latitude = 0;
-	s_observer->m_longitude = 0;
-	s_observer->CalculateEyeState();
-}
-
-PPh::Observer* Observer::GetInstance()
-{
-	return s_observer;
-}
-
-void Observer::Echolocation()
-{
-	const EyeArray &eyeArray = *m_eyeState;
-	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-	}
-	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-	}
-	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-	}
-	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(m_position, photon);
-	}
-}
-
-void Observer::ChangeOrientation(const SP_EyeState &eyeState)
-{
-	std::atomic_store(&m_newEyeState, eyeState);
-}
-
-SP_EyeColorArray Observer::GrabTexture()
-{
-	SP_EyeColorArray spEyeColorArrayOut;
-	std::atomic_store(&spEyeColorArrayOut, m_spEyeColorArrayOut);
-	SP_EyeColorArray spEyeColorArrayEmpty;
-	std::atomic_store(&m_spEyeColorArrayOut, spEyeColorArrayEmpty);
-	return spEyeColorArrayOut;
-}
-
-PPh::VectorInt32Math Observer::GetPosition() const
-{
-	return m_position;
-}
-
-void Observer::SetNewPosition(const VectorInt32Math &pos)
-{
-	m_newPosition = pos;
-}
-
-PPh::VectorInt32Math Observer::GetNewPosition() const
-{
-	return m_newPosition;
-}
-
-const VectorInt32Math& Observer::GetOrientMinChanger() const
-{
-	return m_orientMinChanger;
-}
-
-const VectorInt32Math& Observer::GetOrientMaxChanger() const
-{
-	return m_orientMaxChanger;
-}
-
-void Observer::CalculateEyeState()
-{
-	if (!m_eyeState)
-	{
-		m_eyeState = std::make_shared<PPh::EyeArray>();
-	}
-	PPh::EyeArray &eyeArray = *m_eyeState;
-
-	float len = EYE_FOV / OBSERVER_EYE_SIZE;
-
-	for (int32_t yy = 0; yy < OBSERVER_EYE_SIZE; ++yy)
-	{
-		for (int32_t xx = 0; xx < OBSERVER_EYE_SIZE; ++xx)
-		{
-			int16_t latitude = m_latitude + EYE_FOV * yy / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			int16_t longitude = 0;
-			int16_t longitudeShift = EYE_FOV * xx / OBSERVER_EYE_SIZE - EYE_FOV / 2;
-			if (latitude < -90 || latitude > 90)
-			{
-				latitude = Sign(latitude)*180 - latitude;
-				longitude = m_longitude - longitudeShift;
-				longitude = longitude < -179 ? 360 + longitude : longitude;
-				longitude = longitude > 180 ? -360 + longitude : longitude;
-				longitude = longitude - 180;
-				longitude = longitude < -179 ? 360 + longitude : longitude;
-			}
-			else
-			{
-				longitude = m_longitude + longitudeShift;
-				longitude = longitude < -179 ? 360 + longitude : longitude;
-				longitude = longitude > 180 ? -360 + longitude : longitude;
-			}
-
-			float pi = 3.1415927410125732421875f;
-
-			int16_t latitudeDownFactor = (int16_t)(abs(longitudeShift) * sinf(latitude * pi / 180));
-			//int16_t latitudeDownFactor = abs(longitudeShift) * latitude / 180;
-			latitude -= latitudeDownFactor;
-			assert(latitude <= 90);
-			assert(latitude >= -90);
-
-
-			VectorFloatMath orientFloat;
-			orientFloat.m_posX = cosf(latitude * pi / 180) * cosf(longitude * pi / 180);
-			orientFloat.m_posY = cosf(latitude * pi / 180) * sinf(longitude * pi / 180);
-			orientFloat.m_posZ = sinf(latitude * pi / 180);
-
-			OrientationVectorMath orient  = MaximizePPhOrientation(orientFloat);
-			eyeArray[yy][xx] = orient;
-		}
-	}
-	CalculateOrientChangers(*m_eyeState);
-}
-
-void Observer::MoveForward(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_movingProgress;
-	m_movingProgress += value;
-	if (movingProgressTmp > m_movingProgress)
-	{
-		VectorInt32Math pos = GetPosition();
-		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
-		VectorInt32Math nextPos = pos + unitVector;
-		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
-		{
-			SetNewPosition(nextPos);
-		}
-	}
-}
-
-void Observer::MoveBackward(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_movingProgress;
-	m_movingProgress -= value;
-	if (movingProgressTmp < m_movingProgress)
-	{
-		VectorInt32Math pos = GetPosition();
-		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
-		VectorInt32Math nextPos = pos - unitVector;
-		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
-		{
-			SetNewPosition(nextPos);
-		}
-	}
-}
-
-void Observer::RotateLeft(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_longitudeProgress;
-	m_longitudeProgress -= value;
-	if (movingProgressTmp < m_longitudeProgress)
-	{
-		--m_longitude;
-		if (m_longitude < -179)
-		{
-			m_longitude += 360;
-		}
-		CalculateEyeState();
-	}
-}
-
-void Observer::RotateRight(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_longitudeProgress;
-	m_longitudeProgress += value;
-	if (movingProgressTmp > m_longitudeProgress)
-	{
-		++m_longitude;
-		if (m_longitude > 180)
-		{
-			m_longitude -= 360;
-		}
-		CalculateEyeState();
-	}
-}
-
-void Observer::RotateUp(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_latitudeProgress;
-	m_latitudeProgress += value;
-	if (movingProgressTmp > m_latitudeProgress)
-	{
-		++m_latitude;
-		if (m_latitude > 90)
-		{
-			--m_latitude;
-		}
-		else
-		{
-			CalculateEyeState();
-		}
-	}
-}
-
-void Observer::RotateDown(uint8_t value)
-{
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
-	auto movingProgressTmp = m_latitudeProgress;
-	m_latitudeProgress -= value;
-	if (movingProgressTmp < m_latitudeProgress)
-	{
-		--m_latitude;
-		if (m_latitude < -90)
-		{
-			++m_latitude;
-		}
-		else
-		{
-			CalculateEyeState();
-		}
-	}
-}
-
-void Observer::IncEatenCrumb(const VectorInt32Math &pos)
-{
-	++m_eatenCrumbNum;
-}
-
-OrientationVectorMath Observer::GetOrientation() const
-{
-	VectorFloatMath orientFloat;
-	float pi = 3.1415927410125732421875f;
-	orientFloat.m_posX = cosf(m_latitude * pi / 180) * cosf(m_longitude * pi / 180);
-	orientFloat.m_posY = cosf(m_latitude * pi / 180) * sinf(m_longitude * pi / 180);
-	orientFloat.m_posZ = sinf(m_latitude * pi / 180);
-
-	OrientationVectorMath orient = MaximizePPhOrientation(orientFloat);
-	return orient;
-}
-
-int32_t RoundToMinMaxPPhInt(float value)
-{
-	int32_t result = 0;
-	if (value < 0)
-	{
-		result = (int32_t)(value - 0.5f);
-	}
-	else
-	{
-		result = (int32_t)(value + 0.5f);
-	}
-
-	return result;
-}
-
-/*int32_t FixFloatErrors(int32_t component, int32_t maxComponentValue)
-{
-	int32_t componentCorrect = component;
-	if (std::abs(component) == maxComponentValue)
-	{
-		if (0 > component)
-		{
-			componentCorrect = PPh::OrientationVectorMath::PPH_INT_MIN;
-		}
-		else
-		{
-			componentCorrect = PPh::OrientationVectorMath::PPH_INT_MAX;
-		}
-	}
-	return componentCorrect;
-}*/
-
-OrientationVectorMath Observer::MaximizePPhOrientation(const VectorFloatMath &orientationVector) const
-{
-	float maxComponent = std::max(std::max(std::abs(orientationVector.m_posX), std::abs(orientationVector.m_posY)), std::abs(orientationVector.m_posZ));
-	float factor = 0;
-	if (maxComponent > 0)
-	{
-		factor = OrientationVectorMath::PPH_INT_MAX / (float)maxComponent;
-	}
-
-	OrientationVectorMath pphOrientation(RoundToMinMaxPPhInt(orientationVector.m_posX*factor), RoundToMinMaxPPhInt(orientationVector.m_posY*factor),
-		RoundToMinMaxPPhInt(orientationVector.m_posZ*factor));
-
-	//int32_t maxPPhComponent = std::max(std::max(std::abs(pphOrientation.m_posX), std::abs(pphOrientation.m_posY)), std::abs(pphOrientation.m_posZ));
-	//pphOrientation.m_posX = FixFloatErrors(pphOrientation.m_posX, maxPPhComponent);
-	//pphOrientation.m_posY = FixFloatErrors(pphOrientation.m_posY, maxPPhComponent);
-	//pphOrientation.m_posZ = FixFloatErrors(pphOrientation.m_posZ, maxPPhComponent);
-
-	return pphOrientation;
-}
-
-void Observer::SetPosition(const VectorInt32Math &pos)
-{
-	m_position = pos;
-}
-
-void Observer::CalculateOrientChangers(const EyeArray &eyeArray)
-{
-	OrientationVectorMath orientMin(OrientationVectorMath::PPH_INT_MAX, OrientationVectorMath::PPH_INT_MAX, OrientationVectorMath::PPH_INT_MAX);
-	OrientationVectorMath orientMax(OrientationVectorMath::PPH_INT_MIN, OrientationVectorMath::PPH_INT_MIN, OrientationVectorMath::PPH_INT_MIN);
-	for (int yy = 0; yy < eyeArray.size(); ++yy)
-	{
-		for (int xx = 0; xx < eyeArray[yy].size(); ++xx)
-		{
-			orientMin.m_posX = std::min(orientMin.m_posX, eyeArray[yy][xx].m_posX);
-			orientMin.m_posY = std::min(orientMin.m_posY, eyeArray[yy][xx].m_posY);
-			orientMin.m_posZ = std::min(orientMin.m_posZ, eyeArray[yy][xx].m_posZ);
-			orientMax.m_posX = std::max(orientMax.m_posX, eyeArray[yy][xx].m_posX);
-			orientMax.m_posY = std::max(orientMax.m_posY, eyeArray[yy][xx].m_posY);
-			orientMax.m_posZ = std::max(orientMax.m_posZ, eyeArray[yy][xx].m_posZ);
-		}
-	}
-
-	m_orientMinChanger = VectorInt32Math(VectorInt32Math::PPH_INT_MAX, VectorInt32Math::PPH_INT_MAX, VectorInt32Math::PPH_INT_MAX);
-	for (int ii = 0; ii < 3; ++ii)
-	{
-		if (0 <= orientMin.m_posArray[ii] && 0 <= orientMax.m_posArray[ii])
-		{
-			m_orientMinChanger.m_posArray[ii] = 0;
-		}
-	}
-
-	m_orientMaxChanger = VectorInt32Math(VectorInt32Math::PPH_INT_MAX, VectorInt32Math::PPH_INT_MAX, VectorInt32Math::PPH_INT_MAX);
-	for (int ii = 0; ii < 3; ++ii)
-	{
-		if (0 >= orientMin.m_posArray[ii] && 0 >= orientMax.m_posArray[ii])
-		{
-			m_orientMaxChanger.m_posArray[ii] = 0;
-		}
-	}
-	ParallelPhysics::GetInstance()->SetNeedUpdateSimulationBoxes();
-}
 
 }

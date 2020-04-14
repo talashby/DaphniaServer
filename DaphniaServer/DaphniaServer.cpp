@@ -23,7 +23,6 @@ int main(int argc, char** argv)
 	PPh::ParallelPhysics::Init(size, 0);
 	if (PPh::ParallelPhysics::LoadUniverse(argv[4]))
 	{
-		PPh::Observer::Init(PPh::VectorInt32Math(26,119,11), PPh::SP_EyeState());
 		PPh::ParallelPhysics::GetInstance()->StartSimulation();
 	}
 	return 0;
