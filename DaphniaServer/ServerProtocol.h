@@ -49,6 +49,7 @@ class MsgGetVersion : public MsgBase
 public:
 	MsgGetVersion() : MsgBase(GetType()) {}
 	static uint8_t GetType() { return MsgType::GetVersion; }
+	uint32_t m_clientVersion;
 };
 
 class MsgGetState : public MsgBase
@@ -126,7 +127,7 @@ class MsgGetVersionResponse : public MsgBase
 public:
 	MsgGetVersionResponse() : MsgBase(GetType()) {}
 	static uint8_t GetType() { return MsgType::GetVersionResponse; }
-	uint32_t m_version;
+	uint32_t m_serverVersion;
 };
 
 class MsgSocketBusyByAnotherObserver : public MsgBase

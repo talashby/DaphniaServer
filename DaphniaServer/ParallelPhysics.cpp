@@ -40,10 +40,14 @@ std::atomic<bool> s_bNeedUpdateSimulationBoxes;
 
 struct ObserverCell
 {
-	ObserverCell(Observer *observer, const VectorInt32Math &position) : m_observer(observer), m_position(position) {}
+	ObserverCell(Observer *observer, const VectorInt32Math &position, SOCKET socket, const sockaddr_in &clientAddr) :
+		m_observer(observer), m_position(position), m_socket(socket), m_clientAddr(clientAddr) {}
 	Observer *m_observer;
-	VectorInt32Math m_position;
+	VectorInt32Math m_position; // universe position
+	SOCKET m_socket; // server socket for client
+	struct sockaddr_in m_clientAddr; // client ip address
 };
+
 std::vector<ObserverCell> s_observers;
 
 // stats
@@ -53,16 +57,6 @@ std::vector<uint64_t> s_timingsUniverseThreads;
 std::vector<uint64_t> s_TickTimeNsAverageUniverseThreads;
 uint64_t s_timingsObserverThread;
 uint64_t s_TickTimeNsAverageObserverThread;
-
-struct Photon
-{
-	Photon() = default;
-	explicit Photon(const OrientationVectorMath &orientation) : m_orientation(orientation)
-	{}
-	EtherColor m_color;
-	OrientationVectorMath m_orientation;
-	PhotonParam m_param;
-};
 
 struct EtherCell
 {
@@ -333,34 +327,45 @@ void ParallelPhysics::AdjustSimulationBoxes()
 }
 
 std::thread s_simulationThread;
-void ParallelPhysics::StartSimulation()
+SOCKET s_socketForNewClient = -1;
+void CreateSocketForNewClient()
 {
-	
-	s_observers.push_back(ObserverCell(new Observer(0), )
-	// init sockets
-	WSADATA wsaData;
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
-
-	// thread
-	//s_simulationThread = std::thread([this]() {
-		m_isSimulationRunning = true;
-
-		// UDP server
+	if (s_observers.size() < MAX_CLIENTS)
+	{
+		// UDP
 		SOCKET socketS;
 		struct sockaddr_in local;
 		local.sin_family = AF_INET;
-		local.sin_port = htons(CLIENT_UDP_PORT_START);
+		local.sin_port = htons(CLIENT_UDP_PORT_START + s_observers.size());
 		local.sin_addr.s_addr = INADDR_ANY;
 		socketS = socket(AF_INET, SOCK_DGRAM, 0);
 		bind(socketS, (sockaddr*)&local, sizeof(local));
 		u_long mode = 1;  // 1 to enable non-blocking socket
 		ioctlsocket(socketS, FIONBIO, &mode);
+		s_socketForNewClient = socketS;
+	}
+	else
+	{
+		assert(s_socketForNewClient == -1);
+	}
+}
+
+void ParallelPhysics::StartSimulation()
+{
+	// init sockets
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	CreateSocketForNewClient();
+	// thread
+	//s_simulationThread = std::thread([this]() {
+		m_isSimulationRunning = true;
+
+
 		
 		// threads
 		std::vector<std::thread> threads;
 		threads.resize(m_threadsCount);
 
-		s_waitThreadsCount = m_threadsCount;
 		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
 		std::thread observersThread = std::thread([this]()
 		{
@@ -369,8 +374,38 @@ void ParallelPhysics::StartSimulation()
 #ifdef HIGH_PRECISION_STATS
 				auto beginTime = std::chrono::high_resolution_clock::now();
 #endif
+				if (s_socketForNewClient != -1)
+				{
+
+					char buffer[64];
+					struct sockaddr_in from;
+					int fromlen = sizeof(from);
+					bool isStateAlreadySent = false;
+					while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
+					{
+						if (MsgGetVersion *msg = QueryMessage<MsgGetVersion>(buffer))
+						{
+							MsgGetVersionResponse msgGetVersionResponse;
+							msgGetVersionResponse.m_serverVersion = PROTOCOL_VERSION;
+							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
+							if (msg->m_clientVersion == PROTOCOL_VERSION)
+							{
+								uint8_t observerIndex = s_observers.size();
+								s_observers.push_back(ObserverCell(new Observer(observerIndex), GetRandomEmptyCell(), s_socketForNewClient, from));
+								InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
+								s_socketForNewClient = -1;
+								CreateSocketForNewClient();
+							}
+						}
+					}
+				}
+
 				int32_t isTimeOdd = s_time % 2;
-				Observer::GetInstance()->PPhTick();
+				for (auto &observer : s_observers)
+				{
+					observer.m_observer->PPhTick(s_time);
+				}
+
 #ifdef HIGH_PRECISION_STATS
 				auto endTime = std::chrono::high_resolution_clock::now();
 				s_timingsObserverThread += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - beginTime).count();
@@ -522,7 +557,10 @@ void ParallelPhysics::StartSimulation()
 		{
 			threads[ii].join();
 		}
-		closesocket(socketS);
+		if (s_socketForNewClient != -1)
+		{
+			closesocket(s_socketForNewClient);
+		}
 	//});
 }
 
@@ -605,6 +643,13 @@ bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & o
 		s_posZ = 0;
 	}
 	return bResult;
+}
+
+bool ParallelPhysics::EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)
+{
+	assert(s_observers.size() > observer->m_index);
+	
+	return EmitPhoton();
 }
 
 void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)

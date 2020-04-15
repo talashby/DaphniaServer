@@ -6,7 +6,6 @@ namespace PPh
 {
 Observer::Observer(int32_t index) : m_index(index)
 {
-	ParallelPhysics::GetInstance()->InitEtherCell(position, EtherType::Observer);
 	CalculateEyeState();
 }
 
@@ -18,7 +17,7 @@ void Observer::Echolocation()
 		Photon photon(m_eyeArray[yy][xx]);
 		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
 		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(this, photon);
+		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
@@ -54,6 +53,11 @@ const VectorInt32Math& Observer::GetOrientMinChanger() const
 const VectorInt32Math& Observer::GetOrientMaxChanger() const
 {
 	return m_orientMaxChanger;
+}
+
+void Observer::PPhTick(uint64_t universeTime)
+{
+
 }
 
 void Observer::CalculateEyeState()

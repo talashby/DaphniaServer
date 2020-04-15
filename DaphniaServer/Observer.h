@@ -23,6 +23,8 @@ public:
 	const VectorInt32Math& GetOrientMinChanger() const;
 	const VectorInt32Math& GetOrientMaxChanger() const;
 
+	void PPhTick(uint64_t universeTime);
+
 	void Echolocation();
 	void CalculateEyeState();
 

@@ -34,8 +34,6 @@ public:
 	void StopSimulation();
 	bool IsSimulationRunning() const;
 
-	bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
-
 	static void SetNeedUpdateSimulationBoxes();
 
 	static uint64_t GetFPS();
@@ -46,6 +44,8 @@ public:
 	bool IsPosInBounds(const VectorInt32Math &pos);
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);
 
+	bool EmitEcholocationPhoton(const class Observer *observer, const OrientationVectorMath &orientation, PhotonParam param);
+
 private:
 	ParallelPhysics();
 
@@ -54,6 +54,9 @@ private:
 	void AdjustSimulationBoxes();
 	void AdjustSizeByBounds(VectorInt32Math &size);
 	VectorInt32Math GetRandomEmptyCell() const;
+	bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
+
+
 	VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
 	uint8_t m_threadsCount = 1;
 	bool m_bSimulateNearObserver = false;

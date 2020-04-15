@@ -107,6 +107,7 @@ namespace PPh
 	public:
 		EtherColor() = default;
 		EtherColor(uint8_t colorR, uint8_t colorG, uint8_t colorB);
+		EtherColor(uint8_t colorR, uint8_t colorG, uint8_t colorB, uint8_t colorA);
 
 		static const EtherColor ZeroColor;
 
@@ -120,6 +121,16 @@ namespace PPh
 		{
 			return m_colorB == V.m_colorB && m_colorG == V.m_colorG && m_colorR == V.m_colorR && m_colorA == V.m_colorA;
 		}
+	};
+
+	struct Photon
+	{
+		Photon() = default;
+		explicit Photon(const OrientationVectorMath &orientation) : m_orientation(orientation)
+		{}
+		EtherColor m_color;
+		OrientationVectorMath m_orientation;
+		PhotonParam m_param;
 	};
 
 	int64_t GetTimeMs();
