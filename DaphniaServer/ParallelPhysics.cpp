@@ -620,6 +620,9 @@ const char* ParallelPhysics::RecvClientMsg(const Observer *observer)
 	{
 		if (from.sin_addr.s_addr != fromCur.sin_addr.s_addr || from.sin_port != fromCur.sin_port)
 		{
+			MsgSocketBusyByAnotherObserver msg;
+			msg.m_serverVersion = PROTOCOL_VERSION;
+			sendto(socket, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&fromCur, fromlen);
 			return nullptr;
 		}
 		return &buffer[0];

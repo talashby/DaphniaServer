@@ -135,6 +135,7 @@ class MsgSocketBusyByAnotherObserver : public MsgBase
 public:
 	MsgSocketBusyByAnotherObserver() : MsgBase(GetType()) {}
 	static uint8_t GetType() { return MsgType::SocketBusyByAnotherObserver; }
+	uint32_t m_serverVersion;
 };
 
 class MsgGetStateResponse : public MsgBase
