@@ -1,6 +1,7 @@
 
 #include "Observer.h"
-
+#include <assert.h>
+#include "ServerProtocol.h"
 
 namespace PPh
 {
@@ -9,39 +10,143 @@ Observer::Observer(int32_t index) : m_index(index)
 	CalculateEyeState();
 }
 
+void Observer::PPhTick(uint64_t universeTime)
+{
+	bool isCalculateEyeStateNeeded = false;
+
+	bool isMsgGetStateReceived = false;
+	bool isMsgMoveForwardReceived = false;
+	bool isMsgMoveBackwardReceived = false;
+	bool isMsgRotateLeftReceived = false;
+	bool isMsgRotateRightReceived = false;
+	bool isMsgRotateUpReceived = false;
+	bool isMsgRotateDownReceived = false;
+	while (const char *buffer = ParallelPhysics::RecvClientMsg(this))
+	{
+		if (QueryMessage<MsgGetState>(buffer))
+		{
+			if (isMsgGetStateReceived)
+			{
+				continue;
+			}
+			isMsgGetStateReceived = true;
+			MsgGetStateResponse msgSendState;
+			msgSendState.m_time = universeTime;
+			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
+			EtherCellPhotonArray photons = ParallelPhysics::GetReceivedPhotons(this);
+			for (const Photon &photon : photons)
+			{
+				if (photon.m_color.m_colorA > 0)
+				{
+					int8_t posY = photon.m_param / OBSERVER_EYE_SIZE;
+					int8_t posX = photon.m_param - posY * OBSERVER_EYE_SIZE;
+					MsgSendPhoton msgSendPhoton;
+					msgSendPhoton.m_color = photon.m_color;
+					msgSendPhoton.m_posX = posX;
+					msgSendPhoton.m_posY = posY;
+					ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
+				}
+			}
+		}
+		else if (auto *msg = QueryMessage<MsgGetStateExt>(buffer))
+		{
+			MsgGetStateExtResponse msgSendState;
+			msgSendState.m_latitude = m_latitude;
+			msgSendState.m_longitude = m_longitude;
+			msgSendState.m_pos = ParallelPhysics::GetObserverPosition(this);
+			msgSendState.m_movingProgress = m_movingProgress;
+			msgSendState.m_eatenCrumbNum = m_eatenCrumbNum;
+			msgSendState.m_eatenCrumbPos = m_eatenCrumbPos;
+
+			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
+		}
+		else if (auto *msg = QueryMessage<MsgMoveForward>(buffer))
+		{
+			if (isMsgMoveForwardReceived)
+			{
+				continue;
+			}
+			isMsgMoveForwardReceived = true;
+			MoveForward(msg->m_value);
+		}
+		else if (auto *msg = QueryMessage<MsgMoveBackward>(buffer))
+		{
+			if (isMsgMoveBackwardReceived)
+			{
+				continue;
+			}
+			isMsgMoveBackwardReceived = true;
+			MoveBackward(msg->m_value);
+		}
+		else if (auto *msg = QueryMessage<MsgRotateLeft>(buffer))
+		{
+			if (isMsgRotateLeftReceived)
+			{
+				continue;
+			}
+			isMsgRotateLeftReceived = true;
+			isCalculateEyeStateNeeded |= RotateLeft(msg->m_value);
+		}
+		else if (auto *msg = QueryMessage<MsgRotateRight>(buffer))
+		{
+			if (isMsgRotateRightReceived)
+			{
+				continue;
+			}
+			isMsgRotateRightReceived = true;
+			isCalculateEyeStateNeeded |= RotateRight(msg->m_value);
+		}
+		else if (auto *msg = QueryMessage<MsgRotateUp>(buffer))
+		{
+			if (isMsgRotateUpReceived)
+			{
+				continue;
+			}
+			isMsgRotateUpReceived = true;
+			isCalculateEyeStateNeeded |= RotateUp(msg->m_value);
+		}
+		else if (auto *msg = QueryMessage<MsgRotateDown>(buffer))
+		{
+			if (isMsgRotateDownReceived)
+			{
+				continue;
+			}
+			isMsgRotateDownReceived = true;
+			isCalculateEyeStateNeeded |= RotateDown(msg->m_value);
+		}
+	}
+	if (isCalculateEyeStateNeeded)
+	{
+		CalculateEyeState();
+	}
+	Echolocation();
+}
+
 void Observer::Echolocation()
 {
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(m_eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
+		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
 		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
-		Photon photon(m_eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(this, photon);
+		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
+		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(m_eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(this, photon);
+		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
+		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
-		Photon photon(m_eyeArray[yy][xx]);
-		photon.m_param = yy * OBSERVER_EYE_SIZE + xx;
-		photon.m_color.m_colorA = 255;
-		ParallelPhysics::GetInstance()->EmitPhoton(this, photon);
+		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
+		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 }
 
@@ -53,11 +158,6 @@ const VectorInt32Math& Observer::GetOrientMinChanger() const
 const VectorInt32Math& Observer::GetOrientMaxChanger() const
 {
 	return m_orientMaxChanger;
-}
-
-void Observer::PPhTick(uint64_t universeTime)
-{
-
 }
 
 void Observer::CalculateEyeState()
@@ -110,59 +210,47 @@ void Observer::CalculateEyeState()
 
 void Observer::MoveForward(uint8_t value)
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
 	auto movingProgressTmp = m_movingProgress;
 	m_movingProgress += value;
 	if (movingProgressTmp > m_movingProgress)
 	{
-		VectorInt32Math pos = GetPosition();
-		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
-		VectorInt32Math nextPos = pos + unitVector;
-		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
-		{
-			SetNewPosition(nextPos);
-		}
+		m_isMoveForward = true;
 	}
+}
+
+bool Observer::GrabMoveForward()
+{
+	bool tmp = m_isMoveForward;
+	m_isMoveForward = false;
+	return tmp;
 }
 
 void Observer::MoveBackward(uint8_t value)
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
 	auto movingProgressTmp = m_movingProgress;
 	m_movingProgress -= value;
 	if (movingProgressTmp < m_movingProgress)
 	{
-		VectorInt32Math pos = GetPosition();
+		m_isMoveBackward = true;
+		/*VectorInt32Math pos = GetPosition();
 		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
 		VectorInt32Math nextPos = pos - unitVector;
 		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
 		{
 			SetNewPosition(nextPos);
-		}
+		}*/
 	}
 }
 
-void Observer::RotateLeft(uint8_t value)
+bool Observer::GrabMoveBackward()
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
+	bool tmp = m_isMoveBackward;
+	m_isMoveBackward = false;
+	return tmp;
+}
 
+bool Observer::RotateLeft(uint8_t value)
+{
 	auto movingProgressTmp = m_longitudeProgress;
 	m_longitudeProgress -= value;
 	if (movingProgressTmp < m_longitudeProgress)
@@ -172,19 +260,13 @@ void Observer::RotateLeft(uint8_t value)
 		{
 			m_longitude += 360;
 		}
-		CalculateEyeState();
+		return true;
 	}
+	return false;
 }
 
-void Observer::RotateRight(uint8_t value)
+bool Observer::RotateRight(uint8_t value)
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
 	auto movingProgressTmp = m_longitudeProgress;
 	m_longitudeProgress += value;
 	if (movingProgressTmp > m_longitudeProgress)
@@ -194,19 +276,13 @@ void Observer::RotateRight(uint8_t value)
 		{
 			m_longitude -= 360;
 		}
-		CalculateEyeState();
+		return true;
 	}
+	return false;
 }
 
-void Observer::RotateUp(uint8_t value)
+bool Observer::RotateUp(uint8_t value)
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
 	auto movingProgressTmp = m_latitudeProgress;
 	m_latitudeProgress += value;
 	if (movingProgressTmp > m_latitudeProgress)
@@ -218,20 +294,14 @@ void Observer::RotateUp(uint8_t value)
 		}
 		else
 		{
-			CalculateEyeState();
+			return true;
 		}
 	}
+	return false;
 }
 
-void Observer::RotateDown(uint8_t value)
+bool Observer::RotateDown(uint8_t value)
 {
-	static int64_t lastActionTime = 0;
-	if (lastActionTime == s_time)
-	{
-		return; // skip
-	}
-	lastActionTime = s_time;
-
 	auto movingProgressTmp = m_latitudeProgress;
 	m_latitudeProgress -= value;
 	if (movingProgressTmp < m_latitudeProgress)
@@ -243,9 +313,10 @@ void Observer::RotateDown(uint8_t value)
 		}
 		else
 		{
-			CalculateEyeState();
+			return true;
 		}
 	}
+	return false;
 }
 
 void Observer::IncEatenCrumb(const VectorInt32Math &pos)

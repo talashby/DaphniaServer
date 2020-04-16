@@ -5,7 +5,6 @@
 namespace PPh
 {
 constexpr int8_t EYE_FOV = 90; // Daphnia eye fov
-typedef int32_t PhotonParam; // warning! Depends on OBSERVER_EYE_SIZE
 constexpr int32_t OBSERVER_EYE_SIZE = 16; // pixels
 constexpr int32_t UPDATE_EYE_TEXTURE_OUT = 20; // milliseconds
 typedef std::array< std::array<OrientationVectorMath, OBSERVER_EYE_SIZE>, OBSERVER_EYE_SIZE> EyeArray;
@@ -24,24 +23,22 @@ public:
 	const VectorInt32Math& GetOrientMaxChanger() const;
 
 	void PPhTick(uint64_t universeTime);
-
-	void Echolocation();
-	void CalculateEyeState();
-
-	void MoveForward(uint8_t value);
-	void MoveBackward(uint8_t value);
-	void RotateLeft(uint8_t value);
-	void RotateRight(uint8_t value);
-	void RotateUp(uint8_t value);
-	void RotateDown(uint8_t value);
-
+	bool GrabMoveForward();
+	bool GrabMoveBackward();
 	void IncEatenCrumb(const VectorInt32Math &pos);
 
 	const int32_t m_index;
 private:
-	friend class ParallelPhysics;
+	void CalculateEyeState();
 	void CalculateOrientChangers();
 	OrientationVectorMath MaximizePPhOrientation(const VectorFloatMath &orientationVector) const;
+	void Echolocation();
+	void MoveForward(uint8_t value);
+	void MoveBackward(uint8_t value);
+	bool RotateLeft(uint8_t value); // returns true if re-CalculateEyeState needed
+	bool RotateRight(uint8_t value); // returns true if re-CalculateEyeState needed
+	bool RotateUp(uint8_t value); // returns true if re-CalculateEyeState needed
+	bool RotateDown(uint8_t value); // returns true if re-CalculateEyeState needed
 
 	const int32_t EYE_IMAGE_DELAY = 3000; // quantum of time
 	//const uint32_t EYE_FOV = PPH_INT_MAX/2; // quantum of length (MAX_INT/2 - 90 degrees; MAX_INT - 180 degrees; 2*MAX_INT - 360 degrees)
@@ -61,5 +58,7 @@ private:
 
 	int16_t m_eatenCrumbNum = 0;
 	VectorInt32Math m_eatenCrumbPos = VectorInt32Math::ZeroVector;
+	bool m_isMoveForward = false;
+	bool m_isMoveBackward = false;
 };
 } // namespace PPh

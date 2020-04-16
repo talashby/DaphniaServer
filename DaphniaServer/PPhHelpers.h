@@ -123,6 +123,7 @@ namespace PPh
 		}
 	};
 
+	typedef int32_t PhotonParam; // warning! Depends on OBSERVER_EYE_SIZE
 	struct Photon
 	{
 		Photon() = default;

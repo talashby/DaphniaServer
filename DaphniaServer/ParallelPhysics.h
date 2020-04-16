@@ -19,6 +19,8 @@ struct EtherType
 	};
 };
 
+typedef std::array<Photon, 26> EtherCellPhotonArray;
+
 class ParallelPhysics
 {
 public:
@@ -45,6 +47,12 @@ public:
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);
 
 	bool EmitEcholocationPhoton(const class Observer *observer, const OrientationVectorMath &orientation, PhotonParam param);
+	bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon); // TODO make private
+
+	static const char* RecvClientMsg(const class Observer *observer); // returns nullptr if error occur
+	static void SendClientMsg(const class Observer *observer, const class MsgBase &msg, int32_t msgSize);
+	static const EtherCellPhotonArray& GetReceivedPhotons(const class Observer *observer);
+	static VectorInt32Math GetObserverPosition(const class Observer *observer);
 
 private:
 	ParallelPhysics();
@@ -54,8 +62,7 @@ private:
 	void AdjustSimulationBoxes();
 	void AdjustSizeByBounds(VectorInt32Math &size);
 	VectorInt32Math GetRandomEmptyCell() const;
-	bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
-
+	static void ClearReceivedPhotons(const class Observer *observer);
 
 	VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
 	uint8_t m_threadsCount = 1;

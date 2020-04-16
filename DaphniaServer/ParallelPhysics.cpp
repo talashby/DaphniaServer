@@ -29,6 +29,7 @@
 
 namespace PPh
 {
+VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const OrientationVectorMath &orient);
 
 ParallelPhysics *s_parallelPhysicsInstance = nullptr;
 
@@ -65,7 +66,7 @@ struct EtherCell
 	{}
 	int32_t m_type;
 	EtherColor m_color;
-	std::array <std::array<Photon, 26>, 2> m_photons;
+	std::array <EtherCellPhotonArray, 2> m_photons;
 };
 
 bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
@@ -281,14 +282,19 @@ const VectorInt32Math & ParallelPhysics::GetUniverseSize() const
 
 void ParallelPhysics::AdjustSimulationBoxes()
 {
+	if (!s_observers.size())
+	{
+		return;
+	}
 	constexpr int32_t SIMULATION_SIZE = 8;
 
-	VectorInt32Math observerPos = Observer::GetInstance()->GetPosition();
+	const Observer *observer = s_observers[0].m_observer;
+	VectorInt32Math observerPos = s_observers[0].m_position;
 
 	VectorInt32Math boundsMin;
 	{
 		VectorInt32Math boundSize(SIMULATION_SIZE, SIMULATION_SIZE, SIMULATION_SIZE);
-		const VectorInt32Math &orientMinChanger = Observer::GetInstance()->GetOrientMinChanger();
+		const VectorInt32Math &orientMinChanger = observer->GetOrientMinChanger();
 		boundSize.m_posX = std::min(boundSize.m_posX, orientMinChanger.m_posX);
 		boundSize.m_posY = std::min(boundSize.m_posY, orientMinChanger.m_posY);
 		boundSize.m_posZ = std::min(boundSize.m_posZ, orientMinChanger.m_posZ);
@@ -299,7 +305,7 @@ void ParallelPhysics::AdjustSimulationBoxes()
 	VectorInt32Math boundsMax;
 	{
 		VectorInt32Math boundSize(SIMULATION_SIZE, SIMULATION_SIZE, SIMULATION_SIZE);
-		const VectorInt32Math &orientMaxChanger = Observer::GetInstance()->GetOrientMaxChanger();
+		const VectorInt32Math &orientMaxChanger = observer->GetOrientMaxChanger();
 		boundSize.m_posX = std::min(boundSize.m_posX, orientMaxChanger.m_posX);
 		boundSize.m_posY = std::min(boundSize.m_posY, orientMaxChanger.m_posY);
 		boundSize.m_posZ = std::min(boundSize.m_posZ, orientMaxChanger.m_posZ);
@@ -336,7 +342,7 @@ void CreateSocketForNewClient()
 		SOCKET socketS;
 		struct sockaddr_in local;
 		local.sin_family = AF_INET;
-		local.sin_port = htons(CLIENT_UDP_PORT_START + s_observers.size());
+		local.sin_port = htons(CLIENT_UDP_PORT_START + (u_short)s_observers.size());
 		local.sin_addr.s_addr = INADDR_ANY;
 		socketS = socket(AF_INET, SOCK_DGRAM, 0);
 		bind(socketS, (sockaddr*)&local, sizeof(local));
@@ -380,17 +386,16 @@ void ParallelPhysics::StartSimulation()
 					char buffer[64];
 					struct sockaddr_in from;
 					int fromlen = sizeof(from);
-					bool isStateAlreadySent = false;
 					while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
 					{
-						if (MsgGetVersion *msg = QueryMessage<MsgGetVersion>(buffer))
+						if (const MsgGetVersion *msg = QueryMessage<MsgGetVersion>(buffer))
 						{
 							MsgGetVersionResponse msgGetVersionResponse;
 							msgGetVersionResponse.m_serverVersion = PROTOCOL_VERSION;
 							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
 							if (msg->m_clientVersion == PROTOCOL_VERSION)
 							{
-								uint8_t observerIndex = s_observers.size();
+								uint8_t observerIndex = (uint8_t)s_observers.size();
 								s_observers.push_back(ObserverCell(new Observer(observerIndex), GetRandomEmptyCell(), s_socketForNewClient, from));
 								InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 								s_socketForNewClient = -1;
@@ -404,6 +409,7 @@ void ParallelPhysics::StartSimulation()
 				for (auto &observer : s_observers)
 				{
 					observer.m_observer->PPhTick(s_time);
+					ClearReceivedPhotons(observer.m_observer);
 				}
 
 #ifdef HIGH_PRECISION_STATS
@@ -434,20 +440,40 @@ void ParallelPhysics::StartSimulation()
 			while (s_waitThreadsCount)
 			{
 			}
-			s_waitThreadsCount = m_threadsCount;
-			//s_waitThreadsCount = m_threadsCount + 1; // universe threads and observer thread
-			if (Observer::GetInstance()->GetPosition() != Observer::GetInstance()->GetNewPosition())
+			s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+			for (ObserverCell &observer : s_observers)
 			{
-				VectorInt32Math newPos = Observer::GetInstance()->GetNewPosition();
-				EtherCell &cell = s_universe[newPos.m_posX][newPos.m_posY][newPos.m_posZ];
-				if (cell.m_type == EtherType::Crumb)
+				bool moveForward = observer.m_observer->GrabMoveForward();
+				bool moveBackward = observer.m_observer->GrabMoveBackward();
+				if (moveForward || moveBackward)
 				{
-					Observer::GetInstance()->IncEatenCrumb(newPos);
+					assert(s_observers.size() > observer.m_observer->m_index);
+					VectorInt32Math pos = observer.m_position;
+					OrientationVectorMath orient = observer.m_observer->GetOrientation();
+					if (moveBackward)
+					{
+						orient *= -1;
+					}
+					VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
+					VectorInt32Math nextPos = pos + unitVector;
+					if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
+					{
+						EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+						EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
+						if (nextCell.m_type == EtherType::Space || nextCell.m_type == EtherType::Crumb)
+						{
+							if (nextCell.m_type == EtherType::Crumb)
+							{
+								observer.m_observer->IncEatenCrumb(nextPos);
+							}
+							observer.m_position = nextPos;
+							nextCell.m_type = EtherType::Observer;
+							nextCell.m_color = cell.m_color;
+							cell.m_type = EtherType::Space;
+						}
+						SetNeedUpdateSimulationBoxes();
+					}
 				}
-				GetInstance()->InitEtherCell(newPos, EtherType::Observer);
-				GetInstance()->InitEtherCell(Observer::GetInstance()->GetPosition(), EtherType::Space);
-				Observer::GetInstance()->SetPosition(newPos);
-				SetNeedUpdateSimulationBoxes();
 			}
 			if (m_bSimulateNearObserver && s_bNeedUpdateSimulationBoxes)
 			{
@@ -475,84 +501,9 @@ void ParallelPhysics::StartSimulation()
 				lastTime = GetTimeMs();
 				lastTimeUniverse = s_time;
 			}
-			char buffer[64];
-			struct sockaddr_in from;
-			int fromlen = sizeof(from);
-			bool isStateAlreadySent = false;
-			while (recvfrom(socketS, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
-			{
-				if (QueryMessage<MsgGetState>(buffer))
-				{
-					if (isStateAlreadySent)
-					{
-						continue;
-					}
-					isStateAlreadySent = true;
-					MsgGetStateResponse msgSendState;
-					msgSendState.m_time = s_time;
-					
-					sendto(socketS, msgSendState.GetBuffer(), sizeof(msgSendState), 0, (sockaddr*)&from, fromlen);
-					// receive photons back
-					int isTimeOdd = (s_time+1) % 2;
-					auto position = Observer::GetInstance()->GetPosition();
-					EtherCell &cell = s_universe[position.m_posX][position.m_posY][position.m_posZ];
-					for (int ii = 0; ii < cell.m_photons[isTimeOdd].size(); ++ii)
-					{
-						Photon &photon = cell.m_photons[isTimeOdd][ii];
-						if (photon.m_color.m_colorA > 0)
-						{
-							int8_t posY = photon.m_param / OBSERVER_EYE_SIZE;
-							int8_t posX = photon.m_param - posY * OBSERVER_EYE_SIZE;
-							MsgSendPhoton msgSendPhoton;
-							msgSendPhoton.m_color = photon.m_color;
-							msgSendPhoton.m_posX = posX;
-							msgSendPhoton.m_posY = posY;
-							sendto(socketS, msgSendPhoton.GetBuffer(), sizeof(msgSendPhoton), 0, (sockaddr*)&from, fromlen);
-							photon.m_color = EtherColor::ZeroColor;
-						}
-					}
-				}
-				else if (auto *msg = QueryMessage<MsgGetStateExt>(buffer))
-				{
-					MsgGetStateExtResponse msgSendState;
-					msgSendState.m_latitude = Observer::GetInstance()->m_latitude;
-					msgSendState.m_longitude = Observer::GetInstance()->m_longitude;
-					msgSendState.m_pos = Observer::GetInstance()->GetPosition();
-					msgSendState.m_movingProgress = Observer::GetInstance()->m_movingProgress;
-					msgSendState.m_eatenCrumbNum = Observer::GetInstance()->m_eatenCrumbNum;
-					msgSendState.m_eatenCrumbPos = Observer::GetInstance()->m_eatenCrumbPos;
-
-					sendto(socketS, msgSendState.GetBuffer(), sizeof(msgSendState), 0, (sockaddr*)&from, fromlen);
-				}
-				else if (auto *msg = QueryMessage<MsgMoveForward>(buffer))
-				{
-					Observer::GetInstance()->MoveForward(msg->m_value);
-				}
-				else if (auto *msg = QueryMessage<MsgMoveBackward>(buffer))
-				{
-					Observer::GetInstance()->MoveBackward(msg->m_value);
-				}
-				else if (auto *msg = QueryMessage<MsgRotateLeft>(buffer))
-				{
-					Observer::GetInstance()->RotateLeft(msg->m_value);
-				}
-				else if (auto *msg = QueryMessage<MsgRotateRight>(buffer))
-				{
-					Observer::GetInstance()->RotateRight(msg->m_value);
-				}
-				else if (auto *msg = QueryMessage<MsgRotateUp>(buffer))
-				{
-					Observer::GetInstance()->RotateUp(msg->m_value);
-				}
-				else if (auto *msg = QueryMessage<MsgRotateDown>(buffer))
-				{
-					Observer::GetInstance()->RotateDown(msg->m_value);
-				}
-				}
-			Observer::GetInstance()->Echolocation();
 			++s_time;
 		}
-//		observerThread.join();
+		observersThread.join();
 		for (int ii = 0; ii < m_threadsCount; ++ii)
 		{
 			threads[ii].join();
@@ -648,8 +599,73 @@ bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & o
 bool ParallelPhysics::EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)
 {
 	assert(s_observers.size() > observer->m_index);
-	
-	return EmitPhoton();
+	const VectorInt32Math &pos = s_observers[observer->m_index].m_position;
+	Photon photon(orientation);
+	photon.m_param = param;
+	photon.m_color.m_colorA = 255;
+	return EmitPhoton(pos, photon);
+}
+
+const char* ParallelPhysics::RecvClientMsg(const Observer *observer)
+{
+	assert(s_observers.size() > observer->m_index);
+	SOCKET socket = s_observers[observer->m_index].m_socket;
+	struct sockaddr_in &from = s_observers[observer->m_index].m_clientAddr;
+
+	static char buffer[64];
+	struct sockaddr_in fromCur;
+	int fromlen = sizeof(sockaddr_in);
+	int result = recvfrom(socket, buffer, sizeof(buffer), 0, (sockaddr*)&fromCur, &fromlen);
+	if (result > 0)
+	{
+		if (from.sin_addr.s_addr != fromCur.sin_addr.s_addr || from.sin_port != fromCur.sin_port)
+		{
+			return nullptr;
+		}
+		return &buffer[0];
+	}
+
+	return nullptr;
+}
+
+void ParallelPhysics::SendClientMsg(const Observer *observer, const MsgBase &msg, int32_t msgSize)
+{
+	assert(s_observers.size() > observer->m_index);
+	SOCKET socket = s_observers[observer->m_index].m_socket;
+	struct sockaddr_in &from = s_observers[observer->m_index].m_clientAddr;
+	int fromlen = sizeof(sockaddr_in);
+
+	sendto(socket, msg.GetBuffer(), msgSize, 0, (sockaddr*)&from, fromlen);
+}
+
+const EtherCellPhotonArray& ParallelPhysics::GetReceivedPhotons(const class Observer *observer)
+{
+	assert(s_observers.size() > observer->m_index);
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
+	const EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	int isTimeOdd = (s_time + 1) % 2;
+	const EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
+	return photonArray;
+}
+
+PPh::VectorInt32Math ParallelPhysics::GetObserverPosition(const class Observer *observer)
+{
+	assert(s_observers.size() > observer->m_index);
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
+	return pos;
+}
+
+void ParallelPhysics::ClearReceivedPhotons(const Observer *observer)
+{
+	assert(s_observers.size() > observer->m_index);
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	int isTimeOdd = (s_time + 1) % 2;
+	EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
+	for (Photon &photon : photonArray)
+	{
+		photon.m_color.m_colorA = 0;
+	}
 }
 
 void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)
