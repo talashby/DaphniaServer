@@ -388,11 +388,10 @@ void ParallelPhysics::StartSimulation()
 					int fromlen = sizeof(from);
 					while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
 					{
-						if (const MsgGetVersion *msg = QueryMessage<MsgGetVersion>(buffer))
+						if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
 						{
-							MsgGetVersionResponse msgGetVersionResponse;
-							msgGetVersionResponse.m_serverVersion = PROTOCOL_VERSION;
-							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
+							MsgCheckVersionResponse msgGetVersionResponse;
+							msgGetVersionResponse.m_observerId = 0;
 							if (msg->m_clientVersion == PROTOCOL_VERSION)
 							{
 								uint8_t observerIndex = (uint8_t)s_observers.size();
@@ -400,7 +399,14 @@ void ParallelPhysics::StartSimulation()
 								InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 								s_socketForNewClient = -1;
 								CreateSocketForNewClient();
+								msgGetVersionResponse.m_observerId = reinterpret_cast<uint64_t>(s_observers.back().m_observer);
 							}
+							else
+							{
+								printf("Client refused with wrong protocol version. Server version: %d. Client version: %d\n", PROTOCOL_VERSION, msg->m_clientVersion);
+							}
+							msgGetVersionResponse.m_serverVersion = PROTOCOL_VERSION;
+							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
 						}
 					}
 				}
@@ -480,7 +486,7 @@ void ParallelPhysics::StartSimulation()
 				AdjustSimulationBoxes();
 			}
 			
-			if (GetTimeMs() - lastTime >= 1000)
+			if (GetTimeMs() - lastTime >= 1000 && s_time > 0)
 			{
 				s_quantumOfTimePerSecond = s_time - lastTimeUniverse;
 #ifdef HIGH_PRECISION_STATS
@@ -620,6 +626,14 @@ const char* ParallelPhysics::RecvClientMsg(const Observer *observer)
 	{
 		if (from.sin_addr.s_addr != fromCur.sin_addr.s_addr || from.sin_port != fromCur.sin_port)
 		{
+			if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
+			{
+				if (msg->m_observerId == reinterpret_cast<uint64_t>(observer))
+				{
+					from = fromCur;
+					return &buffer[0];
+				}
+			}
 			MsgSocketBusyByAnotherObserver msg;
 			msg.m_serverVersion = PROTOCOL_VERSION;
 			sendto(socket, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&fromCur, fromlen);

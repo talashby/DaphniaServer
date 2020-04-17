@@ -23,7 +23,14 @@ void Observer::PPhTick(uint64_t universeTime)
 	bool isMsgRotateDownReceived = false;
 	while (const char *buffer = ParallelPhysics::RecvClientMsg(this))
 	{
-		if (QueryMessage<MsgGetState>(buffer))
+		if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
+		{
+			MsgCheckVersionResponse msgCheckVersionResponse;
+			msgCheckVersionResponse.m_observerId = reinterpret_cast<uint64_t>(this);
+			msgCheckVersionResponse.m_serverVersion = PROTOCOL_VERSION;
+			ParallelPhysics::SendClientMsg(this, msgCheckVersionResponse, sizeof(msgCheckVersionResponse));
+		}
+		else if (QueryMessage<MsgGetState>(buffer))
 		{
 			if (isMsgGetStateReceived)
 			{
