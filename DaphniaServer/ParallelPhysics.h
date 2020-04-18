@@ -38,10 +38,10 @@ public:
 
 	static void SetNeedUpdateSimulationBoxes();
 
-	static uint64_t GetFPS();
+	static uint32_t GetFPS();
 	static bool IsHighPrecisionStatsEnabled();
-	static uint64_t GetTickTimeNsObserverThread(); // average tick time in nanoseconds
-	static std::vector<uint64_t> GetTickTimeNsUniverseThreads(); // average tick time in nanoseconds
+	static uint32_t GetTickTimeNsObserverThread(); // average tick time in microseconds
+	static std::vector<uint32_t> GetTickTimeNsUniverseThreads(); // average tick time in microseconds
 
 	bool IsPosInBounds(const VectorInt32Math &pos);
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);

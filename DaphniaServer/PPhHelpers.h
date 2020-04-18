@@ -143,4 +143,6 @@ namespace PPh
 	{
 		return (x > 0) - (x < 0);
 	}
+
+#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 }

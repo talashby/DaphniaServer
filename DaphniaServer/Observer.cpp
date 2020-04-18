@@ -14,29 +14,33 @@ void Observer::PPhTick(uint64_t universeTime)
 {
 	bool isCalculateEyeStateNeeded = false;
 
-	bool isMsgGetStateReceived = false;
-	bool isMsgMoveForwardReceived = false;
-	bool isMsgMoveBackwardReceived = false;
-	bool isMsgRotateLeftReceived = false;
-	bool isMsgRotateRightReceived = false;
-	bool isMsgRotateUpReceived = false;
-	bool isMsgRotateDownReceived = false;
+	static_assert(MsgType::ClientToServerEnd <= 64);
+	uint64_t receivedMessagesBitset = 0;
+
 	while (const char *buffer = ParallelPhysics::RecvClientMsg(this))
 	{
-		if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
+		if (buffer[0] >= MsgType::ClientToServerEnd)
+		{
+			printf("Wrong message from client %d. Message type: %d.", m_index, buffer[0]);
+			continue;
+		}
+		if (receivedMessagesBitset & (1ULL << (buffer[0]))) // test bit
+		{
+			continue; // handle one message of same type in a tick
+		}
+		receivedMessagesBitset |= 1ULL << buffer[0]; // set bit
+		switch ((MsgType::MsgType)buffer[0])
+		{
+		case MsgType::CheckVersion:
 		{
 			MsgCheckVersionResponse msgCheckVersionResponse;
 			msgCheckVersionResponse.m_observerId = reinterpret_cast<uint64_t>(this);
 			msgCheckVersionResponse.m_serverVersion = PROTOCOL_VERSION;
 			ParallelPhysics::SendClientMsg(this, msgCheckVersionResponse, sizeof(msgCheckVersionResponse));
 		}
-		else if (QueryMessage<MsgGetState>(buffer))
+		break;
+		case MsgType::GetState:
 		{
-			if (isMsgGetStateReceived)
-			{
-				continue;
-			}
-			isMsgGetStateReceived = true;
 			MsgGetStateResponse msgSendState;
 			msgSendState.m_time = universeTime;
 			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
@@ -55,7 +59,8 @@ void Observer::PPhTick(uint64_t universeTime)
 				}
 			}
 		}
-		else if (auto *msg = QueryMessage<MsgGetStateExt>(buffer))
+		break;
+		case MsgType::GetStateExt:
 		{
 			MsgGetStateExtResponse msgSendState;
 			msgSendState.m_latitude = m_latitude;
@@ -67,61 +72,54 @@ void Observer::PPhTick(uint64_t universeTime)
 
 			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
 		}
-		else if (auto *msg = QueryMessage<MsgMoveForward>(buffer))
+		break;
+		case MsgType::MoveForward:
 		{
-			if (isMsgMoveForwardReceived)
-			{
-				continue;
-			}
-			isMsgMoveForwardReceived = true;
+			auto *msg = QueryMessage<MsgMoveForward>(buffer);
+			assert(msg);
 			MoveForward(msg->m_value);
 		}
-		else if (auto *msg = QueryMessage<MsgMoveBackward>(buffer))
+		break;
+		case MsgType::MoveBackward:
 		{
-			if (isMsgMoveBackwardReceived)
-			{
-				continue;
-			}
-			isMsgMoveBackwardReceived = true;
+			auto *msg = QueryMessage<MsgMoveBackward>(buffer);
+			assert(msg);
 			MoveBackward(msg->m_value);
 		}
-		else if (auto *msg = QueryMessage<MsgRotateLeft>(buffer))
+		break;
+		case MsgType::RotateLeft:
 		{
-			if (isMsgRotateLeftReceived)
-			{
-				continue;
-			}
-			isMsgRotateLeftReceived = true;
+			auto *msg = QueryMessage<MsgRotateLeft>(buffer);
+			assert(msg);
 			isCalculateEyeStateNeeded |= RotateLeft(msg->m_value);
 		}
-		else if (auto *msg = QueryMessage<MsgRotateRight>(buffer))
+		break;
+		case MsgType::RotateRight:
 		{
-			if (isMsgRotateRightReceived)
-			{
-				continue;
-			}
-			isMsgRotateRightReceived = true;
+			auto *msg = QueryMessage<MsgRotateRight>(buffer);
+			assert(msg);
 			isCalculateEyeStateNeeded |= RotateRight(msg->m_value);
 		}
-		else if (auto *msg = QueryMessage<MsgRotateUp>(buffer))
+		break;
+		case MsgType::RotateUp:
 		{
-			if (isMsgRotateUpReceived)
-			{
-				continue;
-			}
-			isMsgRotateUpReceived = true;
+			auto *msg = QueryMessage<MsgRotateUp>(buffer);
+			assert(msg);
 			isCalculateEyeStateNeeded |= RotateUp(msg->m_value);
 		}
-		else if (auto *msg = QueryMessage<MsgRotateDown>(buffer))
+		break;
+		case MsgType::RotateDown:
 		{
-			if (isMsgRotateDownReceived)
-			{
-				continue;
-			}
-			isMsgRotateDownReceived = true;
+			auto *msg = QueryMessage<MsgRotateDown>(buffer);
+			assert(msg);
 			isCalculateEyeStateNeeded |= RotateDown(msg->m_value);
 		}
+		break;
+		default:
+			break;
+		}
 	}
+
 	if (isCalculateEyeStateNeeded)
 	{
 		CalculateEyeState();
