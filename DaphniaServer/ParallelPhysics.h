@@ -40,8 +40,8 @@ public:
 
 	static uint32_t GetFPS();
 	static bool IsHighPrecisionStatsEnabled();
-	static uint32_t GetTickTimeNsObserverThread(); // average tick time in microseconds
-	static std::vector<uint32_t> GetTickTimeNsUniverseThreads(); // average tick time in microseconds
+	static uint32_t GetTickTimeMusObserverThread(); // average tick time in microseconds
+	static std::vector<uint32_t> GetTickTimeMusUniverseThreads(); // average tick time in microseconds
 
 	bool IsPosInBounds(const VectorInt32Math &pos);
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);

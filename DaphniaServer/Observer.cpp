@@ -39,6 +39,31 @@ void Observer::PPhTick(uint64_t universeTime)
 			ParallelPhysics::SendClientMsg(this, msgCheckVersionResponse, sizeof(msgCheckVersionResponse));
 		}
 		break;
+		case MsgType::GetStatistics:
+		{
+			MsgGetStatisticsResponse msg;
+			msg.m_fps = ParallelPhysics::GetFPS();
+			msg.m_observerThreadTickTime = ParallelPhysics::GetTickTimeMusObserverThread();
+
+			const std::vector<uint32_t> &universeThreadsTimings = ParallelPhysics::GetTickTimeMusUniverseThreads();
+			if (universeThreadsTimings.size() > 0)
+			{
+				uint32_t timeMusMin = universeThreadsTimings[0];
+				uint32_t timeMusMax = universeThreadsTimings[0];
+				for (int32_t ii=1; ii < universeThreadsTimings.size(); ++ii)
+				{
+					timeMusMin = std::min(timeMusMin, universeThreadsTimings[ii]);
+					timeMusMax = std::max(timeMusMax, universeThreadsTimings[ii]);
+				}
+				msg.m_universeThreadMinTickTime = timeMusMin;
+				msg.m_universeThreadMaxTickTime = timeMusMax;
+			}
+			msg.m_universeThreadsCount = (uint16_t)universeThreadsTimings.size();
+
+			
+			ParallelPhysics::SendClientMsg(this, msg, sizeof(msg));
+		}
+		break;
 		case MsgType::GetState:
 		{
 			MsgGetStateResponse msgSendState;

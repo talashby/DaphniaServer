@@ -55,9 +55,9 @@ std::vector<ObserverCell> s_observers;
 uint32_t s_quantumOfTimePerSecond = 0;
 #define HIGH_PRECISION_STATS 1
 std::vector<uint32_t> s_timingsUniverseThreads;
-std::vector<uint32_t> s_TickTimeNsAverageUniverseThreads;
+std::vector<uint32_t> s_TickTimeMusAverageUniverseThreads;
 uint32_t s_timingsObserverThread;
-uint32_t s_TickTimeNsAverageObserverThread;
+uint32_t s_TickTimeMusAverageObserverThread;
 
 struct EtherCell
 {
@@ -115,7 +115,7 @@ bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsC
 		}
 #ifdef HIGH_PRECISION_STATS
 		s_timingsUniverseThreads.resize(GetInstance()->m_threadsCount);
-		s_TickTimeNsAverageUniverseThreads.resize(GetInstance()->m_threadsCount);
+		s_TickTimeMusAverageUniverseThreads.resize(GetInstance()->m_threadsCount);
 #endif
 		// fill bounds
 
@@ -494,13 +494,13 @@ void ParallelPhysics::StartSimulation()
 				{
 					if (s_timingsUniverseThreads[ii] > 0)
 					{
-						s_TickTimeNsAverageUniverseThreads[ii] = s_timingsUniverseThreads[ii] / s_quantumOfTimePerSecond;
+						s_TickTimeMusAverageUniverseThreads[ii] = s_timingsUniverseThreads[ii] / s_quantumOfTimePerSecond;
 						s_timingsUniverseThreads[ii] = 0;
 					}
 				}
 				if (s_timingsObserverThread > 0)
 				{
-					s_TickTimeNsAverageObserverThread = s_timingsObserverThread / s_quantumOfTimePerSecond;
+					s_TickTimeMusAverageObserverThread = s_timingsObserverThread / s_quantumOfTimePerSecond;
 					s_timingsObserverThread = 0;
 				}
 #endif
@@ -800,14 +800,14 @@ bool ParallelPhysics::IsHighPrecisionStatsEnabled()
 #endif
 }
 
-uint32_t ParallelPhysics::GetTickTimeNsObserverThread()
+uint32_t ParallelPhysics::GetTickTimeMusObserverThread()
 {
-	return s_TickTimeNsAverageObserverThread;
+	return s_TickTimeMusAverageObserverThread;
 }
 
-std::vector<uint32_t> ParallelPhysics::GetTickTimeNsUniverseThreads()
+std::vector<uint32_t> ParallelPhysics::GetTickTimeMusUniverseThreads()
 {
-	return s_TickTimeNsAverageUniverseThreads;
+	return s_TickTimeMusAverageUniverseThreads;
 }
 
 
