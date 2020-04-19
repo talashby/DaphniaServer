@@ -351,6 +351,7 @@ bool Observer::RotateDown(uint8_t value)
 
 void Observer::IncEatenCrumb(const VectorInt32Math &pos)
 {
+	m_eatenCrumbPos = pos;
 	++m_eatenCrumbNum;
 }
 
