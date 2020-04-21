@@ -160,25 +160,25 @@ void Observer::Echolocation()
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
-		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
+		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
-		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
+		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
-		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
+		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (OBSERVER_EYE_SIZE / 2) + (OBSERVER_EYE_SIZE / 2);
 		PhotonParam param = yy * OBSERVER_EYE_SIZE + xx;
-		ParallelPhysics::GetInstance()->EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
+		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 }
 
@@ -264,13 +264,6 @@ void Observer::MoveBackward(uint8_t value)
 	if (movingProgressTmp < m_movingProgress)
 	{
 		m_isMoveBackward = true;
-		/*VectorInt32Math pos = GetPosition();
-		VectorInt32Math unitVector = CalculatePositionShift(pos, GetOrientation());
-		VectorInt32Math nextPos = pos - unitVector;
-		if (ParallelPhysics::GetInstance()->IsPosInBounds(nextPos))
-		{
-			SetNewPosition(nextPos);
-		}*/
 	}
 }
 
@@ -433,6 +426,6 @@ void Observer::CalculateOrientChangers()
 			m_orientMaxChanger.m_posArray[ii] = 0;
 		}
 	}
-	ParallelPhysics::GetInstance()->SetNeedUpdateSimulationBoxes();
+	ParallelPhysics::SetNeedUpdateSimulationBoxes();
 }
 } // namespace PPh

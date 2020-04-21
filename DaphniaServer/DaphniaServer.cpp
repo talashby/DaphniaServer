@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 	PPh::ParallelPhysics::Init(size, 0);
 	if (PPh::ParallelPhysics::LoadUniverse(argv[4]))
 	{
-		PPh::ParallelPhysics::GetInstance()->StartSimulation();
+		PPh::ParallelPhysics::StartSimulation();
 	}
 	return 0;
 }

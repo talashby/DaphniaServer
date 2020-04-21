@@ -107,7 +107,7 @@ void AdminTcpThread()
 				{
 					VectorInt32Math outCrumbPos;
 					EtherColor outCrumbColor;
-					bool bResult = ParallelPhysics::GetInstance()->GetNextCrumb(outCrumbPos, outCrumbColor);
+					bool bResult = ParallelPhysics::GetNextCrumb(outCrumbPos, outCrumbColor);
 					if (!bResult)
 					{
 						outCrumbPos = VectorInt32Math::ZeroVector;
