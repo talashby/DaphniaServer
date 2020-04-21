@@ -123,7 +123,7 @@ namespace PPh
 		}
 	};
 
-	typedef int32_t PhotonParam; // warning! Depends on OBSERVER_EYE_SIZE
+	typedef int16_t PhotonParam; // warning! Depends on OBSERVER_EYE_SIZE
 	struct Photon
 	{
 		Photon() = default;
@@ -131,7 +131,8 @@ namespace PPh
 		{}
 		EtherColor m_color;
 		OrientationVectorMath m_orientation;
-		PhotonParam m_param;
+		PhotonParam m_param; // used to store coordinates of neuron which sent this photon
+		PhotonParam m_param2; // used to store daphnia id who sent this photon
 	};
 
 	int64_t GetTimeMs();

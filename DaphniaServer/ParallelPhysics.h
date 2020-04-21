@@ -51,6 +51,7 @@ public:
 
 	static const char* RecvClientMsg(const class Observer *observer); // returns nullptr if error occur
 	static void SendClientMsg(const class Observer *observer, const class MsgBase &msg, int32_t msgSize);
+	static void HandleOtherObserversPhotons(const class Observer *observer);
 	static const EtherCellPhotonArray& GetReceivedPhotons(const class Observer *observer);
 	static VectorInt32Math GetObserverPosition(const class Observer *observer);
 

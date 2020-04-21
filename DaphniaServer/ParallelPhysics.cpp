@@ -203,6 +203,30 @@ bool ParallelPhysics::LoadUniverse(const std::string &fileName)
 	return false;
 }
 
+void PhotonStepForward(const VectorInt32Math &pos, Photon &photon, const EtherCell &cell)
+{
+	if (cell.m_type == EtherType::Crumb || cell.m_type == EtherType::Block || cell.m_type == EtherType::Observer)
+	{
+		photon.m_orientation *= -1;
+		uint8_t tmpA = photon.m_color.m_colorA;
+		photon.m_color = cell.m_color;
+		photon.m_color.m_colorA = tmpA;
+	}
+	if (photon.m_color.m_colorA > 10)
+	{
+		photon.m_color.m_colorA -= 10;
+		bool result = ParallelPhysics::GetInstance()->EmitPhoton(pos, photon);
+		//if (result)
+		{
+			photon.m_color = EtherColor::ZeroColor;
+		}
+	}
+	else
+	{
+		photon.m_color = EtherColor::ZeroColor;
+	}
+}
+
 void UniverseThread(int32_t threadNum, bool *isSimulationRunning)
 {
 	while (*isSimulationRunning)
@@ -228,30 +252,7 @@ void UniverseThread(int32_t threadNum, bool *isSimulationRunning)
 						Photon &photon = cell.m_photons[isTimeOdd][ii];
 						if (photon.m_color.m_colorA != 0)
 						{
-							if (cell.m_type == EtherType::Crumb || cell.m_type == EtherType::Block)
-							{
-								photon.m_orientation *= -1;
-								uint8_t tmpA = photon.m_color.m_colorA;
-								photon.m_color = cell.m_color;
-								photon.m_color.m_colorA = tmpA;
-								if (cell.m_type == EtherType::Crumb)
-								{
-									volatile int ttt = 0;
-								}
-							}
-    						if (photon.m_color.m_colorA > 10)
-							{
-								photon.m_color.m_colorA -= 10;
-								bool result = ParallelPhysics::GetInstance()->EmitPhoton({ posX, posY, posZ }, photon);
-								//if (result)
-								{
-									photon.m_color = EtherColor::ZeroColor;
-								}
-							}
-							else
-							{
-								photon.m_color = EtherColor::ZeroColor;
-							}
+							PhotonStepForward({ posX, posY, posZ }, photon, cell);
 						}
 					}
 				}
@@ -608,6 +609,7 @@ bool ParallelPhysics::EmitEcholocationPhoton(const Observer *observer, const Ori
 	const VectorInt32Math &pos = s_observers[observer->m_index].m_position;
 	Photon photon(orientation);
 	photon.m_param = param;
+	photon.m_param2 = observer->m_index;
 	photon.m_color.m_colorA = 255;
 	return EmitPhoton(pos, photon);
 }
@@ -655,12 +657,28 @@ void ParallelPhysics::SendClientMsg(const Observer *observer, const MsgBase &msg
 	sendto(socket, msg.GetBuffer(), msgSize, 0, (sockaddr*)&from, fromlen);
 }
 
+void ParallelPhysics::HandleOtherObserversPhotons(const Observer *observer)
+{
+	assert(s_observers.size() > observer->m_index);
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	int isTimeOdd = s_time % 2;
+	EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
+	for (Photon &photon : photonArray)
+	{
+		if (photon.m_color.m_colorA >0 && photon.m_param2 != observer->m_index)
+		{
+			PhotonStepForward(pos, photon, cell);
+		}
+	}
+}
+
 const EtherCellPhotonArray& ParallelPhysics::GetReceivedPhotons(const class Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
 	const EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
-	int isTimeOdd = (s_time + 1) % 2;
+	int isTimeOdd = s_time % 2;
 	const EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
 	return photonArray;
 }
@@ -677,11 +695,14 @@ void ParallelPhysics::ClearReceivedPhotons(const Observer *observer)
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
 	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
-	int isTimeOdd = (s_time + 1) % 2;
+	int isTimeOdd = (s_time) % 2;
 	EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
 	for (Photon &photon : photonArray)
 	{
-		photon.m_color.m_colorA = 0;
+		if (photon.m_param2 == observer->m_index)
+		{
+			photon.m_color.m_colorA = 0;
+		}
 	}
 }
 

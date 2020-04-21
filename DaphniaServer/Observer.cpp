@@ -17,6 +17,8 @@ void Observer::PPhTick(uint64_t universeTime)
 	static_assert(MsgType::ClientToServerEnd <= 64);
 	uint64_t receivedMessagesBitset = 0;
 
+	ParallelPhysics::HandleOtherObserversPhotons(this);
+
 	while (const char *buffer = ParallelPhysics::RecvClientMsg(this))
 	{
 		if (buffer[0] >= MsgType::ClientToServerEnd)
