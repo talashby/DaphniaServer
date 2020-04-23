@@ -32,12 +32,12 @@ namespace ParallelPhysics
 	void StartSimulation();
 	void StopSimulation();
 	bool IsSimulationRunning();
-	////////////////
-	// For AdminTcp
+/////////////////
+//// For AdminTcp
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);
 
-	////////////////
-	// For Observer
+/////////////////
+//// For Observer
 	void SetNeedUpdateSimulationBoxes();
 	bool EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param);
 	const char* RecvClientMsg(const Observer *observer); // returns nullptr if error occur

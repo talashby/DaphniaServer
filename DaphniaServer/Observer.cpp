@@ -2,6 +2,7 @@
 #include "Observer.h"
 #include <assert.h>
 #include "ServerProtocol.h"
+#include <algorithm>
 
 namespace PPh
 {
@@ -28,6 +29,10 @@ void Observer::PPhTick(uint64_t universeTime)
 		}
 		if (receivedMessagesBitset & (1ULL << (buffer[0]))) // test bit
 		{
+			if (MsgType::GetState == buffer[0])
+			{
+				++m_skippedGetStateAfterLastSendStatistics;
+			}
 			continue; // handle one message of same type in a tick
 		}
 		receivedMessagesBitset |= 1ULL << buffer[0]; // set bit
@@ -62,7 +67,19 @@ void Observer::PPhTick(uint64_t universeTime)
 			}
 			msg.m_universeThreadsCount = (uint16_t)universeThreadsTimings.size();
 
-			
+			int64_t timeDiff = universeTime - m_lastSendStatistics;
+			assert(timeDiff > 0);
+			assert(m_calledGetStateNumAfterLastSendStatistics > 0);
+			if (m_lastSendStatistics && timeDiff && m_calledGetStateNumAfterLastSendStatistics)
+			{
+				msg.m_clientServerPerformanceRatio = ((m_calledGetStateNumAfterLastSendStatistics + m_skippedGetStateAfterLastSendStatistics) * 1000) / timeDiff;
+				msg.m_serverClientPerformanceRatio = ((timeDiff * 1000) / m_calledGetStateNumAfterLastSendStatistics);
+			}
+			// clear client server performance ration
+			m_lastSendStatistics = universeTime;
+			m_calledGetStateNumAfterLastSendStatistics = 0;
+			m_calledGetStateNumAfterLastSendStatistics = 0;
+			// send stats
 			ParallelPhysics::SendClientMsg(this, msg, sizeof(msg));
 		}
 		break;
@@ -71,6 +88,7 @@ void Observer::PPhTick(uint64_t universeTime)
 			MsgGetStateResponse msgSendState;
 			msgSendState.m_time = universeTime;
 			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
+			++m_calledGetStateNumAfterLastSendStatistics;
 			EtherCellPhotonArray photons = ParallelPhysics::GetReceivedPhotons(this);
 			for (const Photon &photon : photons)
 			{

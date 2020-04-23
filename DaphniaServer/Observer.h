@@ -60,5 +60,9 @@ private:
 	VectorInt32Math m_eatenCrumbPos = VectorInt32Math::ZeroVector;
 	bool m_isMoveForward = false;
 	bool m_isMoveBackward = false;
+
+	uint32_t m_skippedGetStateAfterLastSendStatistics = 0;
+	uint32_t m_calledGetStateNumAfterLastSendStatistics = 0;
+	uint64_t m_lastSendStatistics = 0;
 };
 } // namespace PPh

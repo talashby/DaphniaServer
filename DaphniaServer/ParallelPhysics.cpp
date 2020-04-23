@@ -54,12 +54,12 @@ struct ObserverCell
 std::vector<ObserverCell> s_observers;
 
 // stats
-uint32_t s_quantumOfTimePerSecond = 0;
+uint32_t m_quantumOfTimePerSecond = 0;
 #define HIGH_PRECISION_STATS 1
-std::vector<uint32_t> s_timingsUniverseThreads;
-std::vector<uint32_t> s_TickTimeMusAverageUniverseThreads;
-uint32_t s_timingsObserverThread;
-uint32_t s_TickTimeMusAverageObserverThread;
+std::vector<uint32_t> m_timingsUniverseThreads;
+std::vector<uint32_t> m_TickTimeMusAverageUniverseThreads;
+uint32_t m_timingsObserverThread;
+uint32_t m_TickTimeMusAverageObserverThread;
 
 // vars
 VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
@@ -136,8 +136,8 @@ bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsC
 			m_threadsCount = threadsCount;
 		}
 #ifdef HIGH_PRECISION_STATS
-		s_timingsUniverseThreads.resize(m_threadsCount);
-		s_TickTimeMusAverageUniverseThreads.resize(m_threadsCount);
+		m_timingsUniverseThreads.resize(m_threadsCount);
+		m_TickTimeMusAverageUniverseThreads.resize(m_threadsCount);
 #endif
 		// fill bounds
 
@@ -283,7 +283,7 @@ void UniverseThread(int32_t threadNum, bool *isSimulationRunning)
 #ifdef HIGH_PRECISION_STATS
 		auto endTime = std::chrono::high_resolution_clock::now();
 		auto dif = endTime - beginTime;
-		s_timingsUniverseThreads[threadNum] += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(dif).count();
+		m_timingsUniverseThreads[threadNum] += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(dif).count();
 #endif
 		--s_waitThreadsCount;
 		while (s_time % 2 == isTimeOdd)
@@ -438,7 +438,7 @@ void ParallelPhysics::StartSimulation()
 
 #ifdef HIGH_PRECISION_STATS
 				auto endTime = std::chrono::high_resolution_clock::now();
-				s_timingsObserverThread += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(endTime - beginTime).count();
+				m_timingsObserverThread += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(endTime - beginTime).count();
 #endif
 				--s_waitThreadsCount;
 				while (s_time % 2 == isTimeOdd)
@@ -506,20 +506,20 @@ void ParallelPhysics::StartSimulation()
 			
 			if (GetTimeMs() - lastTime >= 1000 && s_time > 0)
 			{
-				s_quantumOfTimePerSecond = (uint32_t)(s_time - lastTimeUniverse);
+				m_quantumOfTimePerSecond = (uint32_t)(s_time - lastTimeUniverse);
 #ifdef HIGH_PRECISION_STATS
-				for (int ii = 0; ii < s_timingsUniverseThreads.size(); ++ii)
+				for (int ii = 0; ii < m_timingsUniverseThreads.size(); ++ii)
 				{
-					if (s_timingsUniverseThreads[ii] > 0)
+					if (m_timingsUniverseThreads[ii] > 0)
 					{
-						s_TickTimeMusAverageUniverseThreads[ii] = s_timingsUniverseThreads[ii] / s_quantumOfTimePerSecond;
-						s_timingsUniverseThreads[ii] = 0;
+						m_TickTimeMusAverageUniverseThreads[ii] = m_timingsUniverseThreads[ii] / m_quantumOfTimePerSecond;
+						m_timingsUniverseThreads[ii] = 0;
 					}
 				}
-				if (s_timingsObserverThread > 0)
+				if (m_timingsObserverThread > 0)
 				{
-					s_TickTimeMusAverageObserverThread = s_timingsObserverThread / s_quantumOfTimePerSecond;
-					s_timingsObserverThread = 0;
+					m_TickTimeMusAverageObserverThread = m_timingsObserverThread / m_quantumOfTimePerSecond;
+					m_timingsObserverThread = 0;
 				}
 #endif
 				lastTime = GetTimeMs();
@@ -804,7 +804,7 @@ void ParallelPhysics::SetNeedUpdateSimulationBoxes()
 
 uint32_t ParallelPhysics::GetFPS()
 {
-	return s_quantumOfTimePerSecond;
+	return m_quantumOfTimePerSecond;
 }
 
 bool ParallelPhysics::IsHighPrecisionStatsEnabled()
@@ -818,12 +818,12 @@ bool ParallelPhysics::IsHighPrecisionStatsEnabled()
 
 uint32_t ParallelPhysics::GetTickTimeMusObserverThread()
 {
-	return s_TickTimeMusAverageObserverThread;
+	return m_TickTimeMusAverageObserverThread;
 }
 
 std::vector<uint32_t> ParallelPhysics::GetTickTimeMusUniverseThreads()
 {
-	return s_TickTimeMusAverageUniverseThreads;
+	return m_TickTimeMusAverageUniverseThreads;
 }
 //-----------------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------- Helpers ---------------------------------------------------------
