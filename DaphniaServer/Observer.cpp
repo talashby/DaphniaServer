@@ -78,7 +78,7 @@ void Observer::PPhTick(uint64_t universeTime)
 			// clear client server performance ration
 			m_lastSendStatistics = universeTime;
 			m_calledGetStateNumAfterLastSendStatistics = 0;
-			m_calledGetStateNumAfterLastSendStatistics = 0;
+			m_skippedGetStateAfterLastSendStatistics = 0;
 			// send stats
 			ParallelPhysics::SendClientMsg(this, msg, sizeof(msg));
 		}

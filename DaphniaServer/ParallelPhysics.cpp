@@ -95,7 +95,7 @@ bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
 void ClearReceivedPhotons(const class Observer *observer);
 
 
-bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
+bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
 {
 	if (0 < universeSize.m_posX && 0 < universeSize.m_posY && 0 < universeSize.m_posZ)
 	{
@@ -129,7 +129,7 @@ bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsC
 		if (0 == threadsCount)
 		{
 			m_bSimulateNearObserver = true;
-			m_threadsCount = 4;
+			m_threadsCount = 3;
 		}
 		else
 		{
@@ -166,7 +166,7 @@ bool ParallelPhysics::Init(const VectorInt32Math &universeSize, uint8_t threadsC
 	return false;
 }
 
-bool ParallelPhysics::SaveUniverse(const std::string &fileName)
+bool SaveUniverse(const std::string &fileName)
 {
 	std::ofstream myfile;
 	myfile.open(fileName);
@@ -188,7 +188,7 @@ bool ParallelPhysics::SaveUniverse(const std::string &fileName)
 	return false;
 }
 
-bool ParallelPhysics::LoadUniverse(const std::string &fileName)
+bool LoadUniverse(const std::string &fileName)
 {
 	std::ifstream myfile(fileName);
 	if (myfile.is_open())
@@ -237,7 +237,7 @@ void PhotonStepForward(const VectorInt32Math &pos, Photon &photon, const EtherCe
 	if (photon.m_color.m_colorA > 10)
 	{
 		photon.m_color.m_colorA -= 10;
-		bool result = ParallelPhysics::EmitPhoton(pos, photon);
+		bool result = EmitPhoton(pos, photon);
 		//if (result)
 		{
 			photon.m_color = EtherColor::ZeroColor;
@@ -293,12 +293,12 @@ void UniverseThread(int32_t threadNum, bool *isSimulationRunning)
 	--s_waitThreadsCount;
 }
 
-const VectorInt32Math & ParallelPhysics::GetUniverseSize()
+const VectorInt32Math & GetUniverseSize()
 {
 	return m_universeSize;
 }
 
-void ParallelPhysics::AdjustSimulationBoxes()
+void AdjustSimulationBoxes()
 {
 	if (!s_observers.size())
 	{
@@ -332,8 +332,8 @@ void ParallelPhysics::AdjustSimulationBoxes()
 	}
 	
 	int32_t lengthX = boundsMax.m_posX - boundsMin.m_posX;
-	int32_t partX = lengthX / 4;
-	int32_t remain = lengthX - partX * 4;
+	int32_t partX = lengthX / m_threadsCount;
+	int32_t remain = lengthX - partX * m_threadsCount;
 
 	int32_t posXBegin = boundsMin.m_posX;
 	for (int ii = 0; ii < m_threadsCount; ++ii)
@@ -374,7 +374,7 @@ void CreateSocketForNewClient()
 	}
 }
 
-void ParallelPhysics::StartSimulation()
+void StartSimulation()
 {
 	// init sockets
 	WSADATA wsaData;
@@ -480,7 +480,7 @@ void ParallelPhysics::StartSimulation()
 					}
 					VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
 					VectorInt32Math nextPos = pos + unitVector;
-					if (ParallelPhysics::IsPosInBounds(nextPos))
+					if (IsPosInBounds(nextPos))
 					{
 						EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
 						EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
@@ -539,18 +539,18 @@ void ParallelPhysics::StartSimulation()
 	//});
 }
 
-void ParallelPhysics::StopSimulation()
+void StopSimulation()
 {
 	m_isSimulationRunning = false;
 	s_simulationThread.join();
 }
 
-bool ParallelPhysics::IsSimulationRunning()
+bool IsSimulationRunning()
 {
 	return m_isSimulationRunning;
 }
 
-int32_t ParallelPhysics::GetCellPhotonIndex(const VectorInt32Math &unitVector)
+int32_t GetCellPhotonIndex(const VectorInt32Math &unitVector)
 {
 	int32_t index = (unitVector.m_posX + 1) * 9 + (unitVector.m_posY + 1) * 3 + (unitVector.m_posZ + 1);
 	if (index > 13)
@@ -560,7 +560,7 @@ int32_t ParallelPhysics::GetCellPhotonIndex(const VectorInt32Math &unitVector)
 	return index;
 }
 
-bool ParallelPhysics::IsPosInBounds(const VectorInt32Math &pos)
+bool IsPosInBounds(const VectorInt32Math &pos)
 {
 	const VectorInt32Math &size = GetUniverseSize();
 	if (pos.m_posX < 0 || pos.m_posY < 0 || pos.m_posZ < 0)
@@ -574,7 +574,7 @@ bool ParallelPhysics::IsPosInBounds(const VectorInt32Math &pos)
 	return true;
 }
 
-bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & outCrumbColor)
+bool GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & outCrumbColor)
 {
 	static int32_t s_posX = 0;
 	static int32_t s_posY = 0;
@@ -617,7 +617,7 @@ bool ParallelPhysics::GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & o
 	return bResult;
 }
 
-bool ParallelPhysics::EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)
+bool EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)
 {
 	assert(s_observers.size() > observer->m_index);
 	const VectorInt32Math &pos = s_observers[observer->m_index].m_position;
@@ -628,7 +628,7 @@ bool ParallelPhysics::EmitEcholocationPhoton(const Observer *observer, const Ori
 	return EmitPhoton(pos, photon);
 }
 
-const char* ParallelPhysics::RecvClientMsg(const Observer *observer)
+const char* RecvClientMsg(const Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	SOCKET socket = s_observers[observer->m_index].m_socket;
@@ -661,7 +661,7 @@ const char* ParallelPhysics::RecvClientMsg(const Observer *observer)
 	return nullptr;
 }
 
-void ParallelPhysics::SendClientMsg(const Observer *observer, const MsgBase &msg, int32_t msgSize)
+void SendClientMsg(const Observer *observer, const MsgBase &msg, int32_t msgSize)
 {
 	assert(s_observers.size() > observer->m_index);
 	SOCKET socket = s_observers[observer->m_index].m_socket;
@@ -671,7 +671,7 @@ void ParallelPhysics::SendClientMsg(const Observer *observer, const MsgBase &msg
 	sendto(socket, msg.GetBuffer(), msgSize, 0, (sockaddr*)&from, fromlen);
 }
 
-void ParallelPhysics::HandleOtherObserversPhotons(const Observer *observer)
+void HandleOtherObserversPhotons(const Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
@@ -687,7 +687,7 @@ void ParallelPhysics::HandleOtherObserversPhotons(const Observer *observer)
 	}
 }
 
-const EtherCellPhotonArray& ParallelPhysics::GetReceivedPhotons(const class Observer *observer)
+const EtherCellPhotonArray& GetReceivedPhotons(const class Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
@@ -697,14 +697,14 @@ const EtherCellPhotonArray& ParallelPhysics::GetReceivedPhotons(const class Obse
 	return photonArray;
 }
 
-PPh::VectorInt32Math ParallelPhysics::GetObserverPosition(const class Observer *observer)
+PPh::VectorInt32Math GetObserverPosition(const class Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
 	return pos;
 }
 
-void ParallelPhysics::ClearReceivedPhotons(const Observer *observer)
+void ClearReceivedPhotons(const Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
@@ -720,7 +720,7 @@ void ParallelPhysics::ClearReceivedPhotons(const Observer *observer)
 	}
 }
 
-void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)
+void AdjustSizeByBounds(VectorInt32Math &size)
 {
 	const VectorInt32Math &universeSize = GetUniverseSize();
 	size.m_posX = std::max(0, size.m_posX);
@@ -732,7 +732,7 @@ void ParallelPhysics::AdjustSizeByBounds(VectorInt32Math &size)
 	size.m_posZ = std::min(universeSize.m_posZ, size.m_posZ);
 }
 
-PPh::VectorInt32Math ParallelPhysics::GetRandomEmptyCell()
+PPh::VectorInt32Math GetRandomEmptyCell()
 {
 	for (int ii=0; ii<10000; ++ii)
 	{
@@ -748,7 +748,7 @@ PPh::VectorInt32Math ParallelPhysics::GetRandomEmptyCell()
 	return VectorInt32Math::ZeroVector;
 }
 
-bool ParallelPhysics::InitEtherCell(const VectorInt32Math &pos, EtherType::EEtherType type, const EtherColor &color)
+bool InitEtherCell(const VectorInt32Math &pos, EtherType::EEtherType type, const EtherColor &color)
 {
 	if (s_universe.size() > pos.m_posX)
 	{
@@ -776,7 +776,7 @@ bool ParallelPhysics::InitEtherCell(const VectorInt32Math &pos, EtherType::EEthe
 	return false;
 }
 
-bool ParallelPhysics::EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
+bool EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
 {
 	VectorInt32Math unitVector = CalculatePositionShift(pos, photon.m_orientation);
 	VectorInt32Math nextPos = pos + unitVector;
@@ -797,17 +797,17 @@ bool ParallelPhysics::EmitPhoton(const VectorInt32Math &pos, const Photon &photo
 	return true;
 }
 
-void ParallelPhysics::SetNeedUpdateSimulationBoxes()
+void SetNeedUpdateSimulationBoxes()
 {
 	s_bNeedUpdateSimulationBoxes = true;
 }
 
-uint32_t ParallelPhysics::GetFPS()
+uint32_t GetFPS()
 {
 	return m_quantumOfTimePerSecond;
 }
 
-bool ParallelPhysics::IsHighPrecisionStatsEnabled()
+bool IsHighPrecisionStatsEnabled()
 {
 #ifdef HIGH_PRECISION_STATS
 	return true;
@@ -816,12 +816,12 @@ bool ParallelPhysics::IsHighPrecisionStatsEnabled()
 #endif
 }
 
-uint32_t ParallelPhysics::GetTickTimeMusObserverThread()
+uint32_t GetTickTimeMusObserverThread()
 {
 	return m_TickTimeMusAverageObserverThread;
 }
 
-std::vector<uint32_t> ParallelPhysics::GetTickTimeMusUniverseThreads()
+std::vector<uint32_t> GetTickTimeMusUniverseThreads()
 {
 	return m_TickTimeMusAverageUniverseThreads;
 }
