@@ -1,16 +1,13 @@
 #pragma once
 
-#include "ParallelPhysics.h"
+#include "PPhHelpers.h"
+#include "ServerProtocol.h"
+#include "array"
 
 namespace PPh
 {
 constexpr int8_t EYE_FOV = 90; // Daphnia eye fov
-constexpr int32_t OBSERVER_EYE_SIZE = 16; // pixels
-constexpr int32_t UPDATE_EYE_TEXTURE_OUT = 20; // milliseconds
-typedef std::array< std::array<OrientationVectorMath, OBSERVER_EYE_SIZE>, OBSERVER_EYE_SIZE> EyeArray;
-typedef std::array< std::array<EtherColor, OBSERVER_EYE_SIZE>, OBSERVER_EYE_SIZE> EyeColorArray;
-typedef std::array< std::array<uint64_t, OBSERVER_EYE_SIZE>, OBSERVER_EYE_SIZE> EyeUpdateTimeArray;
-typedef std::shared_ptr< EyeColorArray > SP_EyeColorArray;
+typedef std::array< std::array<OrientationVectorMath, CommonParams::OBSERVER_EYE_SIZE>, CommonParams::OBSERVER_EYE_SIZE> EyeArray;
 
 class Observer
 {

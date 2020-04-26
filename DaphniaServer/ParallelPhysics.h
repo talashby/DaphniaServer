@@ -42,7 +42,7 @@ namespace ParallelPhysics
 	bool EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param);
 	const char* RecvClientMsg(const Observer *observer); // returns nullptr if error occur
 	void SendClientMsg(const Observer *observer, const MsgBase &msg, int32_t msgSize);
-	void HandleOtherObserversPhotons(const Observer *observer);
+	void HandleOtherObserversPhotons(const Observer *observer); // should be called from observers thread
 	const EtherCellPhotonArray& GetReceivedPhotons(const Observer *observer);
 	VectorInt32Math GetObserverPosition(const Observer *observer);
 	// Stats

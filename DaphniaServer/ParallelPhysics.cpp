@@ -354,13 +354,13 @@ std::thread s_simulationThread;
 SOCKET s_socketForNewClient = -1;
 void CreateSocketForNewClient()
 {
-	if (s_observers.size() < MAX_CLIENTS)
+	if (s_observers.size() < CommonParams::MAX_CLIENTS)
 	{
 		// UDP
 		SOCKET socketS;
 		struct sockaddr_in local;
 		local.sin_family = AF_INET;
-		local.sin_port = htons(CLIENT_UDP_PORT_START + (u_short)s_observers.size());
+		local.sin_port = htons(CommonParams::CLIENT_UDP_PORT_START + (u_short)s_observers.size());
 		local.sin_addr.s_addr = INADDR_ANY;
 		socketS = socket(AF_INET, SOCK_DGRAM, 0);
 		bind(socketS, (sockaddr*)&local, sizeof(local));
@@ -401,7 +401,7 @@ void StartSimulation()
 				if (s_socketForNewClient != -1)
 				{
 
-					char buffer[64];
+					char buffer[CommonParams::DEFAULT_BUFLEN];
 					struct sockaddr_in from;
 					int fromlen = sizeof(from);
 					while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
@@ -410,7 +410,7 @@ void StartSimulation()
 						{
 							MsgCheckVersionResponse msgGetVersionResponse;
 							msgGetVersionResponse.m_observerId = 0;
-							if (msg->m_clientVersion == PROTOCOL_VERSION)
+							if (msg->m_clientVersion == CommonParams::PROTOCOL_VERSION)
 							{
 								uint8_t observerIndex = (uint8_t)s_observers.size();
 								s_observers.push_back(ObserverCell(new Observer(observerIndex), GetRandomEmptyCell(), s_socketForNewClient, from));
@@ -421,9 +421,9 @@ void StartSimulation()
 							}
 							else
 							{
-								printf("Client refused with wrong protocol version. Server version: %d. Client version: %d\n", PROTOCOL_VERSION, msg->m_clientVersion);
+								printf("Client refused with wrong protocol version. Server version: %d. Client version: %d\n", CommonParams::PROTOCOL_VERSION, msg->m_clientVersion);
 							}
-							msgGetVersionResponse.m_serverVersion = PROTOCOL_VERSION;
+							msgGetVersionResponse.m_serverVersion = CommonParams::PROTOCOL_VERSION;
 							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
 						}
 					}
@@ -634,7 +634,7 @@ const char* RecvClientMsg(const Observer *observer)
 	SOCKET socket = s_observers[observer->m_index].m_socket;
 	struct sockaddr_in &from = s_observers[observer->m_index].m_clientAddr;
 
-	static char buffer[64];
+	static char buffer[CommonParams::DEFAULT_BUFLEN];
 	struct sockaddr_in fromCur;
 	int fromlen = sizeof(sockaddr_in);
 	int result = recvfrom(socket, buffer, sizeof(buffer), 0, (sockaddr*)&fromCur, &fromlen);
@@ -651,7 +651,7 @@ const char* RecvClientMsg(const Observer *observer)
 				}
 			}
 			MsgSocketBusyByAnotherObserver msg;
-			msg.m_serverVersion = PROTOCOL_VERSION;
+			msg.m_serverVersion = CommonParams::PROTOCOL_VERSION;
 			sendto(socket, msg.GetBuffer(), sizeof(msg), 0, (sockaddr*)&fromCur, fromlen);
 			return nullptr;
 		}

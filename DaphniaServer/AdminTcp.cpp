@@ -12,9 +12,6 @@
 #include <stdio.h>
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
-// #pragma comment (lib, "Mswsock.lib")
-
-#define DEFAULT_BUFLEN 512
 
 namespace PPh
 {
@@ -33,8 +30,8 @@ void AdminTcpThread()
 		struct addrinfo hints;
 
 		int iSendResult;
-		char recvbuf[DEFAULT_BUFLEN];
-		int recvbuflen = DEFAULT_BUFLEN;
+		char recvbuf[CommonParams::DEFAULT_BUFLEN];
+		int recvbuflen = CommonParams::DEFAULT_BUFLEN;
 
 		// Initialize Winsock
 		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
