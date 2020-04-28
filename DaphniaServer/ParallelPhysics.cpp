@@ -390,7 +390,7 @@ void StartSimulation()
 		std::vector<std::thread> threads;
 		threads.resize(m_threadsCount);
 
-		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+		s_waitThreadsCount = 1; // observer thread only before first connection
 		std::thread observersThread = std::thread([]()
 		{
 			while (m_isSimulationRunning)
@@ -448,6 +448,23 @@ void StartSimulation()
 			--s_waitThreadsCount;
 		});
 
+		// wait first observer
+		while (m_isSimulationRunning)
+		{
+			while (s_waitThreadsCount)
+			{
+			}
+			if (s_observers.size())
+			{
+				break;
+			}
+			Sleep(100);
+			s_waitThreadsCount = 1; // observer thread only before first connection
+			++s_time;
+		}
+
+		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+		++s_time;
 		if (m_bSimulateNearObserver)
 		{
 			AdjustSimulationBoxes();
