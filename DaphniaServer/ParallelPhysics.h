@@ -8,17 +8,6 @@
 namespace PPh
 {
 
-struct EtherType
-{
-	enum EEtherType
-	{
-		Space = 0,
-		Crumb,
-		Block,
-		Observer
-	};
-};
-
 typedef std::array<Photon, 26> EtherCellPhotonArray;
 class Observer;
 class MsgBase;
