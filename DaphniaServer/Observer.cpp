@@ -237,10 +237,9 @@ void Observer::CalculateEyeState()
 				longitude = longitude > 180 ? -360 + longitude : longitude;
 			}
 
-			float pi = 3.1415927410125732421875f;
+			float pi = 3.14159f;
 
 			int16_t latitudeDownFactor = (int16_t)(abs(longitudeShift) * sinf(latitude * pi / 180));
-			//int16_t latitudeDownFactor = abs(longitudeShift) * latitude / 180;
 			latitude -= latitudeDownFactor;
 			assert(latitude <= 90);
 			assert(latitude >= -90);
