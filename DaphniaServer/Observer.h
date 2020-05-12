@@ -19,9 +19,18 @@ public:
 	const VectorInt32Math& GetOrientMinChanger() const;
 	const VectorInt32Math& GetOrientMaxChanger() const;
 
+	const int16_t& GetLatitude() const;
+	const int16_t& GetLongitude() const;
+
 	void PPhTick(uint64_t universeTime);
+
 	bool GrabMoveForward();
 	bool GrabMoveBackward();
+	bool GrabNewLatitude(); // used to send new orientation to administrator
+	bool GrabNewLongitude(); // used to send new orientation to administrator
+	bool GetFirstSendToAdmin(); // true - need to send data (position etc.) to admin first time
+	void SetFirstSendToAdmin(bool firstSendToAdmin);
+
 	void IncEatenCrumb(const VectorInt32Math &pos);
 
 	const int32_t m_index;
@@ -38,7 +47,6 @@ private:
 	bool RotateDown(uint8_t value); // returns true if re-CalculateEyeState needed
 
 	const int32_t EYE_IMAGE_DELAY = 3000; // quantum of time
-	//const uint32_t EYE_FOV = PPH_INT_MAX/2; // quantum of length (MAX_INT/2 - 90 degrees; MAX_INT - 180 degrees; 2*MAX_INT - 360 degrees)
 
 	const int32_t ECHOLOCATION_FREQUENCY = 1; // quantum of time
 	int32_t m_echolocationCounter = 0;
@@ -53,6 +61,9 @@ private:
 	uint8_t m_latitudeProgress = 0; //
 	uint8_t m_longitudeProgress = 0; //
 
+	bool m_newLatitudeToSend = false;
+	bool m_newLongitudeToSend = false;
+
 	int16_t m_eatenCrumbNum = 0;
 	VectorInt32Math m_eatenCrumbPos = VectorInt32Math::ZeroVector;
 	bool m_isMoveForward = false;
@@ -61,5 +72,7 @@ private:
 	uint32_t m_skippedGetStateAfterLastSendStatistics = 0;
 	uint32_t m_calledGetStateNumAfterLastSendStatistics = 0;
 	uint64_t m_lastSendStatistics = 0;
+
+	bool m_firstSendToAdmin = true;
 };
 } // namespace PPh

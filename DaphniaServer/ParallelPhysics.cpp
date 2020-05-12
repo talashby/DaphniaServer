@@ -66,6 +66,7 @@ VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
 uint8_t m_threadsCount = 1;
 bool m_bSimulateNearObserver = false;
 bool m_isSimulationRunning = false;
+std::atomic<uint64_t> m_adminObserverId = 0;
 
 struct EtherCell
 {
@@ -482,6 +483,7 @@ void StartSimulation()
 			{
 			}
 			s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+			uint64_t adminObserverId = m_adminObserverId.load();
 			for (ObserverCell &observer : s_observers)
 			{
 				bool moveForward = observer.m_observer->GrabMoveForward();
@@ -513,6 +515,19 @@ void StartSimulation()
 							cell.m_type = EtherType::Space;
 						}
 						SetNeedUpdateSimulationBoxes();
+					}
+				}
+				if (adminObserverId && (uint64_t)observer.m_observer != adminObserverId)
+				{
+					if (observer.m_observer->GetFirstSendToAdmin() || moveForward || moveBackward || observer.m_observer->GrabNewLatitude() || observer.m_observer->GrabNewLongitude())
+					{
+						observer.m_observer->SetFirstSendToAdmin(false);
+						MsgToAdminSomeObserverPosChanged msg;
+						msg.m_observerId = (uint64_t)observer.m_observer;
+						msg.m_pos = observer.m_position;
+						msg.m_latitude = observer.m_observer->GetLatitude();
+						msg.m_longitude = observer.m_observer->GetLongitude();
+						SendClientMsg((PPh::Observer*)adminObserverId, msg, sizeof(MsgToAdminSomeObserverPosChanged));
 					}
 				}
 			}
@@ -632,6 +647,11 @@ bool GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & outCrumbColor)
 		s_posZ = 0;
 	}
 	return bResult;
+}
+
+void SetAdminObserverId(uint64_t observerId)
+{
+	m_adminObserverId = observerId;
 }
 
 bool EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)

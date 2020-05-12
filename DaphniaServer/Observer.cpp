@@ -210,6 +210,16 @@ const VectorInt32Math& Observer::GetOrientMaxChanger() const
 	return m_orientMaxChanger;
 }
 
+const int16_t &Observer::GetLatitude() const
+{
+	return m_latitude;
+}
+
+const int16_t & Observer::GetLongitude() const
+{
+	return m_longitude;
+}
+
 void Observer::CalculateEyeState()
 {
 	float len = EYE_FOV / CommonParams::OBSERVER_EYE_SIZE;
@@ -291,6 +301,20 @@ bool Observer::GrabMoveBackward()
 	return tmp;
 }
 
+bool Observer::GrabNewLatitude()
+{
+	bool tmp = m_newLatitudeToSend;
+	m_newLatitudeToSend = false;
+	return tmp;
+}
+
+bool Observer::GrabNewLongitude()
+{
+	bool tmp = m_newLongitudeToSend;
+	m_newLongitudeToSend = false;
+	return tmp;
+}
+
 bool Observer::RotateLeft(uint8_t value)
 {
 	auto movingProgressTmp = m_longitudeProgress;
@@ -302,6 +326,7 @@ bool Observer::RotateLeft(uint8_t value)
 		{
 			m_longitude += 360;
 		}
+		m_newLongitudeToSend = true;
 		return true;
 	}
 	return false;
@@ -318,6 +343,7 @@ bool Observer::RotateRight(uint8_t value)
 		{
 			m_longitude -= 360;
 		}
+		m_newLongitudeToSend = true;
 		return true;
 	}
 	return false;
@@ -336,6 +362,7 @@ bool Observer::RotateUp(uint8_t value)
 		}
 		else
 		{
+			m_newLatitudeToSend = true;
 			return true;
 		}
 	}
@@ -355,6 +382,7 @@ bool Observer::RotateDown(uint8_t value)
 		}
 		else
 		{
+			m_newLatitudeToSend = true;
 			return true;
 		}
 	}
@@ -365,6 +393,16 @@ void Observer::IncEatenCrumb(const VectorInt32Math &pos)
 {
 	m_eatenCrumbPos = pos;
 	++m_eatenCrumbNum;
+}
+
+bool Observer::GetFirstSendToAdmin()
+{
+	return m_firstSendToAdmin;
+}
+
+void Observer::SetFirstSendToAdmin(bool firstSendToAdmin)
+{
+	m_firstSendToAdmin = firstSendToAdmin;
 }
 
 OrientationVectorMath Observer::GetOrientation() const

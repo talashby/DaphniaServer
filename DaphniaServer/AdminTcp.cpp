@@ -123,6 +123,10 @@ void AdminTcpThread()
 						return;
 					}
 				}
+				else if (auto *msg = QueryMessage<MsgRegisterAdminObserver>(recvbuf))
+				{
+					ParallelPhysics::SetAdminObserverId(msg->m_observerId);
+				}
 			}
 			else if (iResult == 0)
 			{

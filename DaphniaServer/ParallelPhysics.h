@@ -24,6 +24,7 @@ namespace ParallelPhysics
 /////////////////
 //// For AdminTcp
 	bool GetNextCrumb(VectorInt32Math &outCrumbPos, EtherColor &outCrumbColor);
+	void SetAdminObserverId(uint64_t observerId);
 
 /////////////////
 //// For Observer
