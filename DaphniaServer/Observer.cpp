@@ -95,7 +95,9 @@ void Observer::PPhTick(uint64_t universeTime)
 				if (photon.m_color.m_colorA > 0)
 				{
 					uint8_t posY = photon.m_param / m_eyeSize;
+					assert(posY < m_eyeSize);
 					uint8_t posX = photon.m_param - posY * m_eyeSize;
+					assert(posX < m_eyeSize);
 					MsgSendPhoton msgSendPhoton;
 					msgSendPhoton.m_color = photon.m_color;
 					msgSendPhoton.m_posX = posX;

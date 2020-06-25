@@ -18,7 +18,6 @@ namespace CommonParams // Server - client common params
 		Daphnia8x8 = 1,
 		Daphnia16x16
 	};
-	constexpr int32_t OBSERVER_EYE_SIZE_MAX = 16; // pixels
 }
 namespace MsgType
 {

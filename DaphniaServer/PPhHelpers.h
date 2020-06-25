@@ -134,8 +134,8 @@ namespace PPh
 		}
 	};
 
-	typedef int8_t PhotonParam; // warning! OBSERVER_EYE_SIZE should be max 16
-	typedef int8_t DaphniaIdType; // max 256 daphnias on server
+	typedef uint8_t PhotonParam; // warning! OBSERVER_EYE_SIZE should be max 16
+	typedef uint8_t DaphniaIdType; // max 256 daphnias on server
 	struct Photon
 	{
 		Photon() = default;
