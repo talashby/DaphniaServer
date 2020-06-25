@@ -7,12 +7,12 @@
 namespace PPh
 {
 constexpr int8_t EYE_FOV = 90; // Daphnia eye fov
-typedef std::array< std::array<OrientationVectorMath, CommonParams::OBSERVER_EYE_SIZE>, CommonParams::OBSERVER_EYE_SIZE> EyeArray;
+typedef std::array< std::array<OrientationVectorMath, CommonParams::OBSERVER_EYE_SIZE_MAX>, CommonParams::OBSERVER_EYE_SIZE_MAX> EyeArray;
 
 class Observer
 {
 public:
-	Observer(int32_t index);
+	Observer(int32_t index, uint8_t eyeSize);
 
 	OrientationVectorMath GetOrientation() const;
 
@@ -74,5 +74,6 @@ private:
 	uint64_t m_lastSendStatistics = 0;
 
 	bool m_firstSendToAdmin = true;
+	const uint8_t m_eyeSize;
 };
 } // namespace PPh

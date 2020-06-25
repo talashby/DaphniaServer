@@ -6,7 +6,7 @@
 
 namespace PPh
 {
-Observer::Observer(int32_t index) : m_index(index)
+Observer::Observer(int32_t index, uint8_t eyeSize) : m_index(index), m_eyeSize(eyeSize)
 {
 	CalculateEyeState();
 }
@@ -94,8 +94,8 @@ void Observer::PPhTick(uint64_t universeTime)
 			{
 				if (photon.m_color.m_colorA > 0)
 				{
-					int8_t posY = photon.m_param / CommonParams::OBSERVER_EYE_SIZE;
-					int8_t posX = photon.m_param - posY * CommonParams::OBSERVER_EYE_SIZE;
+					uint8_t posY = photon.m_param / m_eyeSize;
+					uint8_t posX = photon.m_param - posY * m_eyeSize;
 					MsgSendPhoton msgSendPhoton;
 					msgSendPhoton.m_color = photon.m_color;
 					msgSendPhoton.m_posX = posX;
@@ -175,27 +175,27 @@ void Observer::PPhTick(uint64_t universeTime)
 void Observer::Echolocation()
 {
 	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2);
-		PhotonParam param = yy * CommonParams::OBSERVER_EYE_SIZE + xx;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
+		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2) + (CommonParams::OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2);
-		PhotonParam param = yy * CommonParams::OBSERVER_EYE_SIZE + xx;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
+		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2) + (CommonParams::OBSERVER_EYE_SIZE / 2);
-		PhotonParam param = yy * CommonParams::OBSERVER_EYE_SIZE + xx;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
+		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 	{
-		int32_t yy = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2) + (CommonParams::OBSERVER_EYE_SIZE / 2);
-		int32_t xx = OrientationVectorMath::GetRandomNumber() % (CommonParams::OBSERVER_EYE_SIZE / 2) + (CommonParams::OBSERVER_EYE_SIZE / 2);
-		PhotonParam param = yy * CommonParams::OBSERVER_EYE_SIZE + xx;
+		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
+		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
+		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
 	}
 }
@@ -222,15 +222,13 @@ const int16_t & Observer::GetLongitude() const
 
 void Observer::CalculateEyeState()
 {
-	float len = EYE_FOV / CommonParams::OBSERVER_EYE_SIZE;
-
-	for (int32_t yy = 0; yy < CommonParams::OBSERVER_EYE_SIZE; ++yy)
+	for (int32_t yy = 0; yy < m_eyeSize; ++yy)
 	{
-		for (int32_t xx = 0; xx < CommonParams::OBSERVER_EYE_SIZE; ++xx)
+		for (int32_t xx = 0; xx < m_eyeSize; ++xx)
 		{
-			int16_t latitude = m_latitude + EYE_FOV * yy / CommonParams::OBSERVER_EYE_SIZE - EYE_FOV / 2;
+			int16_t latitude = m_latitude + EYE_FOV * yy / m_eyeSize - EYE_FOV / 2;
 			int16_t longitude = 0;
-			int16_t longitudeShift = EYE_FOV * xx / CommonParams::OBSERVER_EYE_SIZE - EYE_FOV / 2;
+			int16_t longitudeShift = EYE_FOV * xx / m_eyeSize - EYE_FOV / 2;
 			if (latitude < -90 || latitude > 90)
 			{
 				latitude = Sign(latitude) * 180 - latitude;

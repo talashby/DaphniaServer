@@ -9,11 +9,16 @@ namespace PPh
 {
 namespace CommonParams // Server - client common params
 {
-	constexpr int32_t PROTOCOL_VERSION = 1;
+	constexpr int32_t PROTOCOL_VERSION = 2;
 	constexpr int32_t DEFAULT_BUFLEN = 512;
 	constexpr uint16_t CLIENT_UDP_PORT_START = 50000;
 	constexpr uint16_t MAX_CLIENTS = 10;
-	constexpr int32_t OBSERVER_EYE_SIZE = 16; // pixels
+	enum class ObserverType
+	{
+		Daphnia8x8 = 1,
+		Daphnia16x16
+	};
+	constexpr int32_t OBSERVER_EYE_SIZE_MAX = 16; // pixels
 }
 namespace MsgType
 {
@@ -59,6 +64,7 @@ public:
 	static uint8_t GetType() { return MsgType::CheckVersion; }
 	uint32_t m_clientVersion;
 	uint64_t m_observerId;
+	uint8_t m_observerType;
 };
 
 class MsgGetStatistics: public MsgBase

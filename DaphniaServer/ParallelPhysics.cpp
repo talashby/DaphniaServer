@@ -414,7 +414,12 @@ void StartSimulation()
 							if (msg->m_clientVersion == CommonParams::PROTOCOL_VERSION)
 							{
 								uint8_t observerIndex = (uint8_t)s_observers.size();
-								s_observers.push_back(ObserverCell(new Observer(observerIndex), GetRandomEmptyCell(), s_socketForNewClient, from));
+								uint8_t eyeSize = 16;
+								if (msg->m_observerType == static_cast<uint8_t>(CommonParams::ObserverType::Daphnia8x8))
+								{
+									eyeSize = 8;
+								}
+								s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
 								InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 								s_socketForNewClient = -1;
 								CreateSocketForNewClient();
