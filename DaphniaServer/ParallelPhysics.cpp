@@ -65,7 +65,7 @@ uint32_t m_TickTimeMusAverageObserverThread;
 VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
 uint8_t m_threadsCount = 1;
 bool m_bSimulateNearObserver = false;
-bool m_isSimulationRunning = false;
+std::atomic<bool> m_isSimulationRunning = false;
 std::atomic<uint64_t> m_adminObserverId = 0;
 
 struct EtherCell
@@ -250,9 +250,9 @@ void PhotonStepForward(const VectorInt32Math &pos, Photon &photon, const EtherCe
 	}
 }
 
-void UniverseThread(int32_t threadNum, bool *isSimulationRunning)
+void UniverseThread(int32_t threadNum)
 {
-	while (*isSimulationRunning)
+	while (m_isSimulationRunning)
 	{
 #ifdef HIGH_PRECISION_STATS
 		auto beginTime = std::chrono::high_resolution_clock::now();
@@ -351,7 +351,6 @@ void AdjustSimulationBoxes()
 	s_bNeedUpdateSimulationBoxes = false;
 }
 
-std::thread s_simulationThread;
 SOCKET s_socketForNewClient = -1;
 void CreateSocketForNewClient()
 {
@@ -381,205 +380,201 @@ void StartSimulation()
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 	CreateSocketForNewClient();
-	// thread
-	//s_simulationThread = std::thread([this]() {
-		m_isSimulationRunning = true;
+	m_isSimulationRunning = true;
 
 
 		
-		// threads
-		std::vector<std::thread> threads;
-		threads.resize(m_threadsCount);
+	// threads
+	std::vector<std::thread> threads;
+	threads.resize(m_threadsCount);
 
-		s_waitThreadsCount = 1; // observer thread only before first connection
-		std::thread observersThread = std::thread([]()
-		{
-			while (m_isSimulationRunning)
-			{
-#ifdef HIGH_PRECISION_STATS
-				auto beginTime = std::chrono::high_resolution_clock::now();
-#endif
-				if (s_socketForNewClient != -1)
-				{
-
-					char buffer[CommonParams::DEFAULT_BUFLEN];
-					struct sockaddr_in from;
-					int fromlen = sizeof(from);
-					while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
-					{
-						if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
-						{
-							MsgCheckVersionResponse msgGetVersionResponse;
-							msgGetVersionResponse.m_observerId = 0;
-							if (msg->m_clientVersion == CommonParams::PROTOCOL_VERSION)
-							{
-								uint8_t observerIndex = (uint8_t)s_observers.size();
-								uint8_t eyeSize = 16;
-								if (msg->m_observerType == static_cast<uint8_t>(CommonParams::ObserverType::Daphnia8x8))
-								{
-									eyeSize = 8;
-								}
-								s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
-								InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
-								s_socketForNewClient = -1;
-								CreateSocketForNewClient();
-								msgGetVersionResponse.m_observerId = reinterpret_cast<uint64_t>(s_observers.back().m_observer);
-							}
-							else
-							{
-								printf("Client refused with wrong protocol version. Server version: %d. Client version: %d\n", CommonParams::PROTOCOL_VERSION, msg->m_clientVersion);
-							}
-							msgGetVersionResponse.m_serverVersion = CommonParams::PROTOCOL_VERSION;
-							sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
-						}
-					}
-				}
-
-				int32_t isTimeOdd = s_time % 2;
-				for (auto &observer : s_observers)
-				{
-					observer.m_observer->PPhTick(s_time);
-					ClearReceivedPhotons(observer.m_observer);
-				}
-
-#ifdef HIGH_PRECISION_STATS
-				auto endTime = std::chrono::high_resolution_clock::now();
-				m_timingsObserverThread += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(endTime - beginTime).count();
-#endif
-				--s_waitThreadsCount;
-				while (s_time % 2 == isTimeOdd)
-				{
-				}
-			}
-			--s_waitThreadsCount;
-		});
-
-		// wait first observer
+	s_waitThreadsCount = 1; // observer thread only before first connection
+	std::thread observersThread = std::thread([]()
+	{
 		while (m_isSimulationRunning)
 		{
-			while (s_waitThreadsCount)
+#ifdef HIGH_PRECISION_STATS
+			auto beginTime = std::chrono::high_resolution_clock::now();
+#endif
+			if (s_socketForNewClient != -1)
 			{
-			}
-			if (s_observers.size())
-			{
-				break;
-			}
-			Sleep(100);
-			s_waitThreadsCount = 1; // observer thread only before first connection
-			++s_time;
-		}
 
-		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+				char buffer[CommonParams::DEFAULT_BUFLEN];
+				struct sockaddr_in from;
+				int fromlen = sizeof(from);
+				while (recvfrom(s_socketForNewClient, buffer, sizeof(buffer), 0, (sockaddr*)&from, &fromlen) > 0)
+				{
+					if (const MsgCheckVersion *msg = QueryMessage<MsgCheckVersion>(buffer))
+					{
+						MsgCheckVersionResponse msgGetVersionResponse;
+						msgGetVersionResponse.m_observerId = 0;
+						if (msg->m_clientVersion == CommonParams::PROTOCOL_VERSION)
+						{
+							uint8_t observerIndex = (uint8_t)s_observers.size();
+							uint8_t eyeSize = 16;
+							if (msg->m_observerType == static_cast<uint8_t>(CommonParams::ObserverType::Daphnia8x8))
+							{
+								eyeSize = 8;
+							}
+							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
+							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
+							s_socketForNewClient = -1;
+							CreateSocketForNewClient();
+							msgGetVersionResponse.m_observerId = reinterpret_cast<uint64_t>(s_observers.back().m_observer);
+						}
+						else
+						{
+							printf("Client refused with wrong protocol version. Server version: %d. Client version: %d\n", CommonParams::PROTOCOL_VERSION, msg->m_clientVersion);
+						}
+						msgGetVersionResponse.m_serverVersion = CommonParams::PROTOCOL_VERSION;
+						sendto(s_socketForNewClient, msgGetVersionResponse.GetBuffer(), sizeof(msgGetVersionResponse), 0, (sockaddr*)&from, fromlen);
+					}
+				}
+			}
+
+			int32_t isTimeOdd = s_time % 2;
+			for (auto &observer : s_observers)
+			{
+				observer.m_observer->PPhTick(s_time);
+				ClearReceivedPhotons(observer.m_observer);
+			}
+
+#ifdef HIGH_PRECISION_STATS
+			auto endTime = std::chrono::high_resolution_clock::now();
+			m_timingsObserverThread += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(endTime - beginTime).count();
+#endif
+			--s_waitThreadsCount;
+			while (s_time % 2 == isTimeOdd)
+			{
+			}
+		}
+		--s_waitThreadsCount;
+	});
+
+	// wait first observer
+	while (m_isSimulationRunning)
+	{
+		while (s_waitThreadsCount)
+		{
+		}
+		if (s_observers.size())
+		{
+			break;
+		}
+		Sleep(100);
+		s_waitThreadsCount = 1; // observer thread only before first connection
 		++s_time;
-		if (m_bSimulateNearObserver)
+	}
+
+	s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+	++s_time;
+	if (m_bSimulateNearObserver)
+	{
+		AdjustSimulationBoxes();
+	}
+	for (int ii = 0; ii < m_threadsCount; ++ii)
+	{
+		threads[ii] = std::thread(UniverseThread, ii);
+	}
+
+	int64_t lastTime = GetTimeMs();
+	uint64_t lastTimeUniverse = 0;
+	while (m_isSimulationRunning)
+	{
+		while (s_waitThreadsCount)
+		{
+		}
+		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
+		uint64_t adminObserverId = m_adminObserverId.load();
+		for (ObserverCell &observer : s_observers)
+		{
+			bool moveForward = observer.m_observer->GrabMoveForward();
+			bool moveBackward = observer.m_observer->GrabMoveBackward();
+			if (moveForward || moveBackward)
+			{
+				assert(s_observers.size() > observer.m_observer->m_index);
+				VectorInt32Math pos = observer.m_position;
+				OrientationVectorMath orient = observer.m_observer->GetOrientation();
+				if (moveBackward)
+				{
+					orient *= -1;
+				}
+				VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
+				VectorInt32Math nextPos = pos + unitVector;
+				if (IsPosInBounds(nextPos))
+				{
+					EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+					EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
+					if (nextCell.m_type == EtherType::Space || nextCell.m_type == EtherType::Crumb)
+					{
+						if (nextCell.m_type == EtherType::Crumb)
+						{
+							observer.m_observer->IncEatenCrumb(nextPos);
+						}
+						observer.m_position = nextPos;
+						nextCell.m_type = EtherType::Observer;
+						nextCell.m_color = cell.m_color;
+						cell.m_type = EtherType::Space;
+					}
+					SetNeedUpdateSimulationBoxes();
+				}
+			}
+			if (adminObserverId && (uint64_t)observer.m_observer != adminObserverId)
+			{
+				if (observer.m_observer->GetFirstSendToAdmin() || moveForward || moveBackward || observer.m_observer->GrabNewLatitude() || observer.m_observer->GrabNewLongitude())
+				{
+					observer.m_observer->SetFirstSendToAdmin(false);
+					MsgToAdminSomeObserverPosChanged msg;
+					msg.m_observerId = (uint64_t)observer.m_observer;
+					msg.m_pos = observer.m_position;
+					msg.m_latitude = observer.m_observer->GetLatitude();
+					msg.m_longitude = observer.m_observer->GetLongitude();
+					SendClientMsg((PPh::Observer*)adminObserverId, msg, sizeof(MsgToAdminSomeObserverPosChanged));
+				}
+			}
+		}
+		if (m_bSimulateNearObserver && s_bNeedUpdateSimulationBoxes)
 		{
 			AdjustSimulationBoxes();
 		}
-		for (int ii = 0; ii < m_threadsCount; ++ii)
-		{
-			threads[ii] = std::thread(UniverseThread, ii, &m_isSimulationRunning);
-		}
-
-		int64_t lastTime = GetTimeMs();
-		uint64_t lastTimeUniverse = 0;
-		while (m_isSimulationRunning)
-		{
-			while (s_waitThreadsCount)
-			{
-			}
-			s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
-			uint64_t adminObserverId = m_adminObserverId.load();
-			for (ObserverCell &observer : s_observers)
-			{
-				bool moveForward = observer.m_observer->GrabMoveForward();
-				bool moveBackward = observer.m_observer->GrabMoveBackward();
-				if (moveForward || moveBackward)
-				{
-					assert(s_observers.size() > observer.m_observer->m_index);
-					VectorInt32Math pos = observer.m_position;
-					OrientationVectorMath orient = observer.m_observer->GetOrientation();
-					if (moveBackward)
-					{
-						orient *= -1;
-					}
-					VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
-					VectorInt32Math nextPos = pos + unitVector;
-					if (IsPosInBounds(nextPos))
-					{
-						EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
-						EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
-						if (nextCell.m_type == EtherType::Space || nextCell.m_type == EtherType::Crumb)
-						{
-							if (nextCell.m_type == EtherType::Crumb)
-							{
-								observer.m_observer->IncEatenCrumb(nextPos);
-							}
-							observer.m_position = nextPos;
-							nextCell.m_type = EtherType::Observer;
-							nextCell.m_color = cell.m_color;
-							cell.m_type = EtherType::Space;
-						}
-						SetNeedUpdateSimulationBoxes();
-					}
-				}
-				if (adminObserverId && (uint64_t)observer.m_observer != adminObserverId)
-				{
-					if (observer.m_observer->GetFirstSendToAdmin() || moveForward || moveBackward || observer.m_observer->GrabNewLatitude() || observer.m_observer->GrabNewLongitude())
-					{
-						observer.m_observer->SetFirstSendToAdmin(false);
-						MsgToAdminSomeObserverPosChanged msg;
-						msg.m_observerId = (uint64_t)observer.m_observer;
-						msg.m_pos = observer.m_position;
-						msg.m_latitude = observer.m_observer->GetLatitude();
-						msg.m_longitude = observer.m_observer->GetLongitude();
-						SendClientMsg((PPh::Observer*)adminObserverId, msg, sizeof(MsgToAdminSomeObserverPosChanged));
-					}
-				}
-			}
-			if (m_bSimulateNearObserver && s_bNeedUpdateSimulationBoxes)
-			{
-				AdjustSimulationBoxes();
-			}
 			
-			if (GetTimeMs() - lastTime >= 1000 && s_time > 0)
-			{
-				m_quantumOfTimePerSecond = (uint32_t)(s_time - lastTimeUniverse);
+		if (GetTimeMs() - lastTime >= 1000 && s_time > 0)
+		{
+			m_quantumOfTimePerSecond = (uint32_t)(s_time - lastTimeUniverse);
 #ifdef HIGH_PRECISION_STATS
-				for (int ii = 0; ii < m_timingsUniverseThreads.size(); ++ii)
+			for (int ii = 0; ii < m_timingsUniverseThreads.size(); ++ii)
+			{
+				if (m_timingsUniverseThreads[ii] > 0)
 				{
-					if (m_timingsUniverseThreads[ii] > 0)
-					{
-						m_TickTimeMusAverageUniverseThreads[ii] = m_timingsUniverseThreads[ii] / m_quantumOfTimePerSecond;
-						m_timingsUniverseThreads[ii] = 0;
-					}
+					m_TickTimeMusAverageUniverseThreads[ii] = m_timingsUniverseThreads[ii] / m_quantumOfTimePerSecond;
+					m_timingsUniverseThreads[ii] = 0;
 				}
-				if (m_timingsObserverThread > 0)
-				{
-					m_TickTimeMusAverageObserverThread = m_timingsObserverThread / m_quantumOfTimePerSecond;
-					m_timingsObserverThread = 0;
-				}
-#endif
-				lastTime = GetTimeMs();
-				lastTimeUniverse = s_time;
 			}
-			++s_time;
+			if (m_timingsObserverThread > 0)
+			{
+				m_TickTimeMusAverageObserverThread = m_timingsObserverThread / m_quantumOfTimePerSecond;
+				m_timingsObserverThread = 0;
+			}
+#endif
+			lastTime = GetTimeMs();
+			lastTimeUniverse = s_time;
 		}
-		observersThread.join();
-		for (int ii = 0; ii < m_threadsCount; ++ii)
-		{
-			threads[ii].join();
-		}
-		if (s_socketForNewClient != -1)
-		{
-			closesocket(s_socketForNewClient);
-		}
-	//});
+		++s_time;
+	}
+	observersThread.join();
+	for (int ii = 0; ii < m_threadsCount; ++ii)
+	{
+		threads[ii].join();
+	}
+	if (s_socketForNewClient != -1)
+	{
+		closesocket(s_socketForNewClient);
+	}
 }
 
 void StopSimulation()
 {
 	m_isSimulationRunning = false;
-	s_simulationThread.join();
 }
 
 bool IsSimulationRunning()
