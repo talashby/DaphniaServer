@@ -485,7 +485,7 @@ void StartSimulation()
 		{
 		}
 		s_waitThreadsCount = m_threadsCount + 1; // universe threads and observers thread
-		uint64_t adminObserverId = m_adminObserverId.load();
+		uint64_t adminObserverId = m_adminObserverId.load(std::memory_order_relaxed);
 		for (ObserverCell &observer : s_observers)
 		{
 			bool moveForward = observer.m_observer->GrabMoveForward();
