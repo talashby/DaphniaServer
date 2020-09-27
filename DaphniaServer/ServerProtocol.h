@@ -18,6 +18,7 @@ namespace CommonParams // Server - client common params
 		Daphnia8x8 = 1,
 		Daphnia16x16
 	};
+	constexpr uint16_t QUANTUM_OF_TIME_PER_SECOND = 10000; // 0 - infinite
 }
 namespace MsgType
 {
