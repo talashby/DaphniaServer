@@ -130,7 +130,7 @@ bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
 		if (0 == threadsCount)
 		{
 			m_bSimulateNearObserver = true;
-			m_threadsCount = 3;
+			m_threadsCount = 1;
 		}
 		else
 		{
