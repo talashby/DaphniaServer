@@ -416,7 +416,8 @@ void StartSimulation()
 							{
 								eyeSize = 8;
 							}
-							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
+							PPh::VectorInt32Math staticPos(21, 200, 20);
+							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos/*GetRandomEmptyCell()*/, s_socketForNewClient, from));
 							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 							s_socketForNewClient = -1;
 							CreateSocketForNewClient();
