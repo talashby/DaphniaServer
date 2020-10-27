@@ -286,6 +286,10 @@ void UniverseThread(int32_t threadNum)
 		auto dif = endTime - beginTime;
 		m_timingsUniverseThreads[threadNum] += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(dif).count();
 #endif
+		if (threadNum == 0)
+		{ // zero thread actually running in simulation thread
+			break;
+		}
 		--s_waitThreadsCount;
 		while (s_time % 2 == isTimeOdd)
 		{
@@ -473,7 +477,7 @@ void StartSimulation()
 	{
 		AdjustSimulationBoxes();
 	}
-	for (int ii = 0; ii < m_threadsCount; ++ii)
+	for (int ii = 1; ii < m_threadsCount; ++ii)
 	{
 		threads[ii] = std::thread(UniverseThread, ii);
 	}
@@ -482,6 +486,7 @@ void StartSimulation()
 	uint64_t lastTimeUniverse = 0;
 	while (m_isSimulationRunning)
 	{
+		UniverseThread(0);
 		while (s_waitThreadsCount)
 		{
 		}
