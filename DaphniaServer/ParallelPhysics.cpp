@@ -421,6 +421,10 @@ void StartSimulation()
 								eyeSize = 8;
 							}
 							PPh::VectorInt32Math staticPos(22, 12, 24);
+							if (s_observers.size() == 1)
+							{
+								staticPos = PPh::VectorInt32Math(16, 12, 28);
+							}
 							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos/*GetRandomEmptyCell()*/, s_socketForNewClient, from));
 							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 							s_socketForNewClient = -1;
