@@ -100,7 +100,20 @@ void AdminTcpThread()
 
 			iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
 			if (iResult > 0) {
-				if (QueryMessage<MsgAdminGetNextCrumb>(recvbuf))
+				if (auto *msg = QueryMessage<MsgCheckVersion>(recvbuf))
+				{
+					MsgAdminCheckVersionResponse msgSend;
+					msgSend.m_serverVersion = ADMIN_PROTOCOL_VERSION;
+					msgSend.m_universeScale = ParallelPhysics::GetUniverseScale();
+					iSendResult = send(ClientSocket, msgSend.GetBuffer(), sizeof(msgSend), 0);
+					if (iSendResult == SOCKET_ERROR) {
+						printf("AdminTcp send failed with error: %d\n", WSAGetLastError());
+						closesocket(ClientSocket);
+						WSACleanup();
+						return;
+					}
+				}
+				else if (QueryMessage<MsgAdminGetNextCrumb>(recvbuf))
 				{
 					VectorInt32Math outCrumbPos;
 					EtherColor outCrumbColor;
@@ -110,12 +123,12 @@ void AdminTcpThread()
 						outCrumbPos = VectorInt32Math::ZeroVector;
 						outCrumbColor = EtherColor::ZeroColor;
 					}
-					MsgAdminGetNextCrumbResponse msg;
-					msg.m_color = outCrumbColor;
-					msg.m_posX = outCrumbPos.m_posX;
-					msg.m_posY = outCrumbPos.m_posY;
-					msg.m_posZ = outCrumbPos.m_posZ;
-					iSendResult = send(ClientSocket, msg.GetBuffer(), sizeof(msg), 0);
+					MsgAdminGetNextCrumbResponse msgSend;
+					msgSend.m_color = outCrumbColor;
+					msgSend.m_posX = outCrumbPos.m_posX;
+					msgSend.m_posY = outCrumbPos.m_posY;
+					msgSend.m_posZ = outCrumbPos.m_posZ;
+					iSendResult = send(ClientSocket, msgSend.GetBuffer(), sizeof(msgSend), 0);
 					if (iSendResult == SOCKET_ERROR) {
 						printf("AdminTcp send failed with error: %d\n", WSAGetLastError());
 						closesocket(ClientSocket);
@@ -125,7 +138,7 @@ void AdminTcpThread()
 				}
 				else if (auto *msg = QueryMessage<MsgRegisterAdminObserver>(recvbuf))
 				{
-					ParallelPhysics::SetAdminObserverId(msg->m_observerId);
+					ParallelPhysics::SetAdminObserverId(msg->m_adminObserverId);
 				}
 			}
 			else if (iResult == 0)

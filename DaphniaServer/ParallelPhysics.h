@@ -14,7 +14,8 @@ class MsgBase;
 
 namespace ParallelPhysics
 {
-	bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount); // returns true if success. threadsCount 0 means simulate near observer
+	bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount, uint32_t universeScale); // returns true if success. threadsCount 0 means simulate near observer
+	uint32_t GetUniverseScale();
 	bool SaveUniverse(const std::string &fileName);
 	bool LoadUniverse(const std::string &fileName);
 

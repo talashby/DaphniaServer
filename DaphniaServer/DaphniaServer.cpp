@@ -10,7 +10,7 @@
 
 int main(int argc, char** argv)
 {
-	if (argc < 5)
+	if (argc < 7)
 	{
 		std::cout << "Not enough arguments";
 		return 0;
@@ -20,10 +20,17 @@ int main(int argc, char** argv)
 	size.m_posY = std::atoi(argv[2]);
 	size.m_posZ = std::atoi(argv[3]);
 
-	PPh::ParallelPhysics::Init(size, 0);
+	printf("Initialization started.\n");
+	PPh::ParallelPhysics::Init(size, std::atoi(argv[5]), std::atoi(argv[6]));
+	printf("Loading Universe...\n");
 	if (PPh::ParallelPhysics::LoadUniverse(argv[4]))
 	{
+		printf("Simulation started!\n");
 		PPh::ParallelPhysics::StartSimulation();
+	}
+	else
+	{
+		printf("Loading failed\n");
 	}
 	return 0;
 }

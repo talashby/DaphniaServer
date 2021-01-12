@@ -32,6 +32,13 @@ namespace PPh
 namespace ParallelPhysics
 {
 // -----------------------------------------------------------------------------------
+// ----------------------------------- Constants -------------------------------------
+// -----------------------------------------------------------------------------------
+
+uint32_t GetPhotonWeakening() { return 10 - (GetUniverseScale() - 1) * 2; }
+uint32_t GetSimulationSize() { return 8 + (GetUniverseScale() - 1) * 2; }
+
+// -----------------------------------------------------------------------------------
 // ----------------------------------- Variables -------------------------------------
 // -----------------------------------------------------------------------------------
 
@@ -63,8 +70,9 @@ uint32_t m_TickTimeMusAverageObserverThread;
 
 // vars
 VectorInt32Math m_universeSize = VectorInt32Math::ZeroVector;
+uint32_t m_universeScale = 1;
 uint8_t m_threadsCount = 1;
-bool m_bSimulateNearObserver = false;
+bool m_bSimulateNearObserver = true;
 std::atomic<bool> m_isSimulationRunning = false;
 std::atomic<uint64_t> m_adminObserverId = 0;
 
@@ -96,15 +104,18 @@ bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
 void ClearReceivedPhotons(const class Observer *observer);
 
 
-bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
+bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount, uint32_t universeScale)
 {
-	if (0 < universeSize.m_posX && 0 < universeSize.m_posY && 0 < universeSize.m_posZ)
+	m_universeSize = universeSize;
+	m_universeSize *= universeScale;
+	m_universeScale = universeScale;
+	if (0 < m_universeSize.m_posX && 0 < m_universeSize.m_posY && 0 < m_universeSize.m_posZ)
 	{
 		OrientationVectorMath::InitRandom();
-		s_universe.resize(universeSize.m_posX);
+		s_universe.resize(m_universeSize.m_posX);
 		for (auto &itY : s_universe)
 		{
-			itY.resize(universeSize.m_posY);
+			itY.resize(m_universeSize.m_posY);
 			for (auto &itZ : itY)
 			{
 				itZ.resize(0);
@@ -122,15 +133,13 @@ bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
 						cell.m_photons[1][ii].m_color.m_colorA = 0;
 					}
 				}
-				itZ.resize(universeSize.m_posZ, cell);
+				itZ.resize(m_universeSize.m_posZ, cell);
 			}
 		}
 
-		m_universeSize = universeSize;
 		if (0 == threadsCount)
 		{
-			m_bSimulateNearObserver = true;
-			m_threadsCount = 1;
+			m_threadsCount = 3;
 		}
 		else
 		{
@@ -167,6 +176,11 @@ bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount)
 	return false;
 }
 
+uint32_t GetUniverseScale()
+{
+	return m_universeScale;
+}
+
 bool SaveUniverse(const std::string &fileName)
 {
 	std::ofstream myfile;
@@ -189,34 +203,49 @@ bool SaveUniverse(const std::string &fileName)
 	return false;
 }
 
+void InitScaledCell(uint32_t posX, uint32_t posY, uint32_t posZ, int32_t cellType)
+{
+	constexpr uint8_t grayColor = 50;
+	EtherColor cellColor(grayColor, grayColor, grayColor);
+	
+	if (cellType == EtherType::Crumb)
+	{
+		std::array<EtherColor, 4> Colors = { EtherColor(255,0,0), EtherColor(0,255,0), EtherColor(0,0,255), EtherColor(255,255,0) };
+		cellColor = Colors[Rand32(4)];
+	}
+
+
+	for (uint32_t xx = 0; xx < GetUniverseScale(); ++xx)
+	{
+		for (uint32_t yy = 0; yy < GetUniverseScale(); ++yy)
+		{
+			for (uint32_t zz = 0; zz < GetUniverseScale(); ++zz)
+			{
+				EtherCell &cell = s_universe[posX+xx][posY+yy][posZ+zz];
+				cell.m_type = cellType;
+				cell.m_color = cellColor;
+			}
+		}
+	}
+}
+
 bool LoadUniverse(const std::string &fileName)
 {
 	std::ifstream myfile(fileName);
 	if (myfile.is_open())
 	{
-		for (int32_t posX = 0; posX < s_universe.size(); ++posX)
+		for (uint32_t posX = 0; posX < s_universe.size(); posX += GetUniverseScale())
 		{
-			for (int32_t posY = 0; posY < s_universe[posX].size(); ++posY)
+			for (uint32_t posY = 0; posY < s_universe[posX].size(); posY += GetUniverseScale())
 			{
-				for (int32_t posZ = 0; posZ < s_universe[posX][posY].size(); ++posZ)
+				for (uint32_t posZ = 0; posZ < s_universe[posX][posY].size(); posZ += GetUniverseScale())
 				{
-					char c = myfile.get();
+					char ch = myfile.get();
 					if (!myfile.good())
 					{
 						return false;
 					}
-					EtherCell &cell = s_universe[posX][posY][posZ];
-					cell.m_type = (EtherType::EEtherType)c;
-					if (cell.m_type == EtherType::Crumb)
-					{
-						std::array<EtherColor, 4> Colors = {EtherColor(255,0,0), EtherColor(0,255,0), EtherColor(0,0,255), EtherColor(255,255,0)};
-						cell.m_color = Colors[Rand32(4)];
-					}
-					else if (cell.m_type == EtherType::Block)
-					{
-						constexpr uint8_t blockGrayColor = 50;
-						cell.m_color = EtherColor(blockGrayColor, blockGrayColor, blockGrayColor);
-					}
+					InitScaledCell(posX, posY, posZ, (EtherType::EEtherType)ch);
 				}
 			}
 		}
@@ -235,9 +264,9 @@ void PhotonStepForward(const VectorInt32Math &pos, Photon &photon, const EtherCe
 		photon.m_color = cell.m_color;
 		photon.m_color.m_colorA = tmpA;
 	}
-	if (photon.m_color.m_colorA > 10)
+	if (photon.m_color.m_colorA > GetPhotonWeakening())
 	{
-		photon.m_color.m_colorA -= 10;
+		photon.m_color.m_colorA -= GetPhotonWeakening();
 		bool result = EmitPhoton(pos, photon);
 		//if (result)
 		{
@@ -309,14 +338,13 @@ void AdjustSimulationBoxes()
 	{
 		return;
 	}
-	constexpr int32_t SIMULATION_SIZE = 8;
 
 	const Observer *observer = s_observers[0].m_observer;
 	VectorInt32Math observerPos = s_observers[0].m_position;
 
 	VectorInt32Math boundsMin;
 	{
-		VectorInt32Math boundSize(SIMULATION_SIZE, SIMULATION_SIZE, SIMULATION_SIZE);
+		VectorInt32Math boundSize(GetSimulationSize(), GetSimulationSize(), GetSimulationSize());
 		const VectorInt32Math &orientMinChanger = observer->GetOrientMinChanger();
 		boundSize.m_posX = std::min(boundSize.m_posX, orientMinChanger.m_posX);
 		boundSize.m_posY = std::min(boundSize.m_posY, orientMinChanger.m_posY);
@@ -327,7 +355,7 @@ void AdjustSimulationBoxes()
 
 	VectorInt32Math boundsMax;
 	{
-		VectorInt32Math boundSize(SIMULATION_SIZE, SIMULATION_SIZE, SIMULATION_SIZE);
+		VectorInt32Math boundSize(GetSimulationSize(), GetSimulationSize(), GetSimulationSize());
 		const VectorInt32Math &orientMaxChanger = observer->GetOrientMaxChanger();
 		boundSize.m_posX = std::min(boundSize.m_posX, orientMaxChanger.m_posX);
 		boundSize.m_posY = std::min(boundSize.m_posY, orientMaxChanger.m_posY);
@@ -425,8 +453,8 @@ void StartSimulation()
 							{
 								staticPos = PPh::VectorInt32Math(16, 12, 28);
 							}
-							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos, s_socketForNewClient, from));
-							//s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
+							//s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos, s_socketForNewClient, from));
+							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
 							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 							s_socketForNewClient = -1;
 							CreateSocketForNewClient();
@@ -636,6 +664,16 @@ bool GetNextCrumb(VectorInt32Math & outCrumbPos, EtherColor & outCrumbColor)
 				auto &cell = s_universe[s_posX][s_posY][s_posZ];
 				if (cell.m_type == EtherType::Crumb)
 				{
+					if (s_posX && s_posY && s_posZ)
+					{
+						auto &cellX = s_universe[s_posX-1][s_posY][s_posZ];
+						auto &cellY = s_universe[s_posX][s_posY-1][s_posZ];
+						auto &cellZ = s_universe[s_posX][s_posY][s_posZ-1];
+						if (cellX.m_type == EtherType::Crumb || cellY.m_type == EtherType::Crumb || cellZ.m_type == EtherType::Crumb)
+						{
+							continue;
+						}
+					}
 					outCrumbPos = VectorInt32Math(s_posX, s_posY, s_posZ);
 					outCrumbColor = cell.m_color;
 					bResult = true;
