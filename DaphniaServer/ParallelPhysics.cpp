@@ -86,11 +86,6 @@ struct EtherCell
 	std::array <EtherCellPhotonArray, 2> m_photons;
 };
 // -----------------------------------------------------------------------------------
-// --------------------------------- Helpers declaration -----------------------------
-// -----------------------------------------------------------------------------------
-VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const OrientationVectorMath &orient);
-
-// -----------------------------------------------------------------------------------
 // -------------------------------- Functions declaration ----------------------------
 // -----------------------------------------------------------------------------------
 bool InitEtherCell(const VectorInt32Math &pos, EtherType::EEtherType type, const EtherColor &color = EtherColor()); // returns true if success
@@ -102,7 +97,12 @@ bool IsPosInBounds(const VectorInt32Math &pos);
 VectorInt32Math GetRandomEmptyCell();
 bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
 void ClearReceivedPhotons(const class Observer *observer);
+VectorInt32Math DestroyCrumb(VectorInt32Math cellPos, bool isResetMinCellPos);
 
+// -----------------------------------------------------------------------------------
+// --------------------------------- Helpers declaration -----------------------------
+// -----------------------------------------------------------------------------------
+VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const OrientationVectorMath &orient);
 
 bool Init(const VectorInt32Math &universeSize, uint8_t threadsCount, uint32_t universeScale)
 {
@@ -548,7 +548,8 @@ void StartSimulation()
 					{
 						if (nextCell.m_type == EtherType::Crumb)
 						{
-							observer.m_observer->IncEatenCrumb(nextPos);
+							VectorInt32Math crumbPos = DestroyCrumb(nextPos, true);
+							observer.m_observer->IncEatenCrumb(crumbPos);
 						}
 						observer.m_position = nextPos;
 						nextCell.m_type = EtherType::Observer;
@@ -881,6 +882,40 @@ bool EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
 	}
 	
 	return true;
+}
+
+VectorInt32Math DestroyCrumb(VectorInt32Math cellPos, bool isResetMinCellPos)
+{
+	assert(IsPosInBounds(cellPos + VectorInt32Math(1, 1, 1)));
+	assert(IsPosInBounds(cellPos + VectorInt32Math(-1, -1, -1)));
+
+	static VectorInt32Math minCellPos = VectorInt32Math::ZeroVector;
+	if (isResetMinCellPos)
+	{
+		minCellPos = cellPos;
+	}
+
+	EtherCell &cell = s_universe[cellPos.m_posX][cellPos.m_posY][cellPos.m_posZ];
+	if (cell.m_type == EtherType::Crumb)
+	{
+		cell.m_type = EtherType::Space;
+		minCellPos.m_posX = std::min(minCellPos.m_posX, cellPos.m_posX);
+		minCellPos.m_posY = std::min(minCellPos.m_posY, cellPos.m_posY);
+		minCellPos.m_posZ = std::min(minCellPos.m_posZ, cellPos.m_posZ);
+		DestroyCrumb(cellPos + VectorInt32Math(1, 0, 0), false);
+		DestroyCrumb(cellPos + VectorInt32Math(-1, 0, 0), false);
+		DestroyCrumb(cellPos + VectorInt32Math(0, 1, 0), false);
+		DestroyCrumb(cellPos + VectorInt32Math(0, -1, 0), false);
+		DestroyCrumb(cellPos + VectorInt32Math(0, 0, 1), false);
+		DestroyCrumb(cellPos + VectorInt32Math(0, 0, -1), false);
+	}
+	else
+	{
+		return VectorInt32Math::ZeroVector;
+	}
+
+
+	return minCellPos;
 }
 
 void SetNeedUpdateSimulationBoxes()
