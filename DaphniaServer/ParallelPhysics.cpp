@@ -34,7 +34,7 @@ namespace ParallelPhysics
 // -----------------------------------------------------------------------------------
 // ----------------------------------- Constants -------------------------------------
 // -----------------------------------------------------------------------------------
-
+constexpr bool IS_DAPHNIA_BIG = false; // big Daphnia is 3x3
 uint32_t GetPhotonWeakening() { return 10 - (GetUniverseScale() - 1) * 2; }
 uint32_t GetSimulationSize() { return 8 + (GetUniverseScale() - 1) * 2; }
 
@@ -540,7 +540,13 @@ void StartSimulation()
 				}
 				VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
 				VectorInt32Math nextPos = pos + unitVector;
-				if (IsPosInBounds(nextPos))
+				VectorInt32Math bigDaphniaVector = VectorInt32Math::ZeroVector;
+				if (IS_DAPHNIA_BIG)
+				{
+					bigDaphniaVector = unitVector;
+				}
+				
+				if (IsPosInBounds(nextPos + bigDaphniaVector))
 				{
 					EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
 					EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
@@ -876,7 +882,10 @@ bool EmitPhoton(const VectorInt32Math &pos, const Photon &photon)
 		Photon &photonCell = cell.m_photons[isTimeOdd][cellPhotonIndex];
 		if (photonCell.m_color.m_colorA > 0)
 		{
-			return false;
+			if (Rand32(2))
+			{
+				return false;
+			}
 		}
 		photonCell = photon;
 	}

@@ -3,6 +3,7 @@
 #include "ParallelPhysics.h"
 #include <assert.h>
 #include <algorithm>
+#include <random>
 
 namespace PPh
 {
@@ -176,7 +177,30 @@ void Observer::PPhTick(uint64_t universeTime)
 
 void Observer::Echolocation()
 {
+	std::vector<int> rndVectorX;
+	std::vector<int> rndVectorY;
+	rndVectorX.resize(m_eyeSize);
+	rndVectorY.resize(m_eyeSize);
+	for (uint32_t rr = 0; rr < m_eyeSize; ++rr)
 	{
+		rndVectorX[rr] = rr;
+		rndVectorY[rr] = rr;
+	}
+
+	std::random_device rd;
+	std::mt19937 g(rd());
+	std::shuffle(rndVectorX.begin(), rndVectorX.end(), g);
+	std::shuffle(rndVectorY.begin(), rndVectorY.end(), g);
+
+	for (uint32_t xx = 0; xx < m_eyeSize; ++xx)
+	{
+		for (uint32_t yy = 0; yy < m_eyeSize; ++yy)
+		{
+			PhotonParam param = rndVectorY[yy] * m_eyeSize + rndVectorX[xx];
+			ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[rndVectorY[yy]][rndVectorX[xx]], param);
+		}
+	}
+/*	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		PhotonParam param = yy * m_eyeSize + xx;
@@ -199,7 +223,7 @@ void Observer::Echolocation()
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
 		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
-	}
+	}*/
 }
 
 const VectorInt32Math& Observer::GetOrientMinChanger() const
