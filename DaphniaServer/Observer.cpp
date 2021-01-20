@@ -90,20 +90,48 @@ void Observer::PPhTick(uint64_t universeTime)
 			msgSendState.m_time = universeTime;
 			ParallelPhysics::SendClientMsg(this, msgSendState, sizeof(msgSendState));
 			++m_calledGetStateNumAfterLastSendStatistics;
-			EtherCellPhotonArray photons = ParallelPhysics::GetReceivedPhotons(this);
-			for (const Photon &photon : photons)
+			for (uint32_t index = 0; index < 3 * 3 * 3 - 1; ++index)
 			{
-				if (photon.m_color.m_colorA > 0)
+				if (IS_DAPHNIA_BIG)
 				{
-					uint8_t posY = photon.m_param / m_eyeSize;
-					assert(posY < m_eyeSize);
-					uint8_t posX = photon.m_param - posY * m_eyeSize;
-					assert(posX < m_eyeSize);
-					MsgSendPhoton msgSendPhoton;
-					msgSendPhoton.m_color = photon.m_color;
-					msgSendPhoton.m_posX = posX;
-					msgSendPhoton.m_posY = posY;
-					ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
+					EtherCellPhotonArray &photons = ParallelPhysics::GetReceivedPhotonsForBigDaphnia(this, index);
+					for (Photon &photon : photons)
+					{
+						if (photon.m_color.m_colorA > 0)
+						{
+							uint8_t posY = photon.m_param / m_eyeSize;
+							assert(posY < m_eyeSize);
+							uint8_t posX = photon.m_param - posY * m_eyeSize;
+							assert(posX < m_eyeSize);
+							MsgSendPhoton msgSendPhoton;
+							msgSendPhoton.m_color = photon.m_color;
+							msgSendPhoton.m_posX = posX;
+							msgSendPhoton.m_posY = posY;
+							ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
+							photon.m_color.m_colorA = 0;
+						}
+					}
+				}
+				else
+				{
+					EtherCellPhotonArray &photons = ParallelPhysics::GetReceivedPhotons(this);
+					for (Photon &photon : photons)
+					{
+						if (photon.m_color.m_colorA > 0)
+						{
+							uint8_t posY = photon.m_param / m_eyeSize;
+							assert(posY < m_eyeSize);
+							uint8_t posX = photon.m_param - posY * m_eyeSize;
+							assert(posX < m_eyeSize);
+							MsgSendPhoton msgSendPhoton;
+							msgSendPhoton.m_color = photon.m_color;
+							msgSendPhoton.m_posX = posX;
+							msgSendPhoton.m_posY = posY;
+							ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
+							photon.m_color.m_colorA = 0;
+						}
+					}
+					break;
 				}
 			}
 		}
@@ -200,7 +228,7 @@ void Observer::Echolocation()
 			ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[rndVectorY[yy]][rndVectorX[xx]], param);
 		}
 	}
-/*	{
+	/*{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		PhotonParam param = yy * m_eyeSize + xx;

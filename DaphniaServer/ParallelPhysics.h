@@ -7,8 +7,13 @@
 
 namespace PPh
 {
+// Constants
+constexpr bool IS_DAPHNIA_BIG = true; // big Daphnia is 3x3x3
 
+// Typedefs
 typedef std::array<Photon, 26> EtherCellPhotonArray;
+
+// Forward declarations
 class Observer;
 class MsgBase;
 
@@ -34,7 +39,8 @@ namespace ParallelPhysics
 	const char* RecvClientMsg(const Observer *observer); // returns nullptr if error occur
 	void SendClientMsg(const Observer *observer, const MsgBase &msg, int32_t msgSize);
 	void HandleOtherObserversPhotons(const Observer *observer); // should be called from observers thread
-	const EtherCellPhotonArray& GetReceivedPhotons(const Observer *observer);
+	EtherCellPhotonArray& GetReceivedPhotons(const Observer *observer);
+	EtherCellPhotonArray& GetReceivedPhotonsForBigDaphnia(const Observer *observer, uint32_t index /*0-26*/);
 	VectorInt32Math GetObserverPosition(const Observer *observer);
 	// Stats
 	uint32_t GetFPS();

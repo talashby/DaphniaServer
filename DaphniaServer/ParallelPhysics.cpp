@@ -34,7 +34,6 @@ namespace ParallelPhysics
 // -----------------------------------------------------------------------------------
 // ----------------------------------- Constants -------------------------------------
 // -----------------------------------------------------------------------------------
-constexpr bool IS_DAPHNIA_BIG = false; // big Daphnia is 3x3
 uint32_t GetPhotonWeakening() { return 10 - (GetUniverseScale() - 1) * 2; }
 uint32_t GetSimulationSize() { return 8 + (GetUniverseScale() - 1) * 2; }
 
@@ -89,7 +88,8 @@ struct EtherCell
 // -------------------------------- Functions declaration ----------------------------
 // -----------------------------------------------------------------------------------
 bool InitEtherCell(const VectorInt32Math &pos, EtherType::EEtherType type, const EtherColor &color = EtherColor()); // returns true if success
-int32_t GetCellPhotonIndex(const VectorInt32Math &unitVector);
+uint32_t GetCellPhotonIndex(const VectorInt32Math &unitVector);
+VectorInt32Math GetUnitVectorFromPhotonIndex(uint32_t index); // index [0;25]
 void AdjustSimulationBoxes();
 void AdjustSizeByBounds(VectorInt32Math &size);
 const VectorInt32Math& GetUniverseSize();
@@ -98,7 +98,9 @@ VectorInt32Math GetRandomEmptyCell();
 bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
 void ClearReceivedPhotons(const class Observer *observer);
 VectorInt32Math DestroyCrumb(VectorInt32Math cellPos, bool isResetMinCellPos);
-
+bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos);
+bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos, const VectorInt32Math &unitVector, VectorInt32Math &outCrumbPos);
+void MoveDaphniaToNextCell(const VectorInt32Math &pos, const VectorInt32Math &unitVector);
 // -----------------------------------------------------------------------------------
 // --------------------------------- Helpers declaration -----------------------------
 // -----------------------------------------------------------------------------------
@@ -456,6 +458,7 @@ void StartSimulation()
 							//s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos, s_socketForNewClient, from));
 							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
 							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
+							MoveDaphniaToNextCell(s_observers.back().m_position, VectorInt32Math::ZeroVector); // make Daphnia bigger
 							s_socketForNewClient = -1;
 							CreateSocketForNewClient();
 							msgGetVersionResponse.m_observerId = reinterpret_cast<uint64_t>(s_observers.back().m_observer);
@@ -540,28 +543,16 @@ void StartSimulation()
 				}
 				VectorInt32Math unitVector = CalculatePositionShift(observer.m_position, orient);
 				VectorInt32Math nextPos = pos + unitVector;
-				VectorInt32Math bigDaphniaVector = VectorInt32Math::ZeroVector;
-				if (IS_DAPHNIA_BIG)
+				VectorInt32Math outEatenCrumbPos = VectorInt32Math::ZeroVector;
+				if (CanDaphniaMoveToNextCell(pos, unitVector, outEatenCrumbPos))
 				{
-					bigDaphniaVector = unitVector;
-				}
-				
-				if (IsPosInBounds(nextPos + bigDaphniaVector))
-				{
-					EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
-					EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
-					if (nextCell.m_type == EtherType::Space || nextCell.m_type == EtherType::Crumb)
+					if (outEatenCrumbPos != VectorInt32Math::ZeroVector)
 					{
-						if (nextCell.m_type == EtherType::Crumb)
-						{
-							VectorInt32Math crumbPos = DestroyCrumb(nextPos, true);
-							observer.m_observer->IncEatenCrumb(crumbPos);
-						}
-						observer.m_position = nextPos;
-						nextCell.m_type = EtherType::Observer;
-						nextCell.m_color = cell.m_color;
-						cell.m_type = EtherType::Space;
+						VectorInt32Math crumbPos = DestroyCrumb(outEatenCrumbPos, true);
+						observer.m_observer->IncEatenCrumb(crumbPos);
 					}
+					MoveDaphniaToNextCell(pos, unitVector);
+					observer.m_position = nextPos;
 					SetNeedUpdateSimulationBoxes();
 				}
 			}
@@ -628,7 +619,7 @@ bool IsSimulationRunning()
 	return m_isSimulationRunning;
 }
 
-int32_t GetCellPhotonIndex(const VectorInt32Math &unitVector)
+uint32_t GetCellPhotonIndex(const VectorInt32Math &unitVector)
 {
 	int32_t index = (unitVector.m_posX + 1) * 9 + (unitVector.m_posY + 1) * 3 + (unitVector.m_posZ + 1);
 	if (index > 13)
@@ -636,6 +627,19 @@ int32_t GetCellPhotonIndex(const VectorInt32Math &unitVector)
 		--index;
 	}
 	return index;
+}
+
+VectorInt32Math GetUnitVectorFromPhotonIndex(uint32_t index) // index [0;25]
+{
+	if (index > 12)
+	{
+		++index;
+	}
+	VectorInt32Math unitVector;
+	unitVector.m_posX = index / 9 - 1;
+	unitVector.m_posY = (index - (unitVector.m_posX + 1) * 9)  / 3 - 1;
+	unitVector.m_posZ = (index - (unitVector.m_posX + 1) * 9 - (unitVector.m_posY + 1) * 3) - 1;
+	return unitVector;
 }
 
 bool IsPosInBounds(const VectorInt32Math &pos)
@@ -713,11 +717,16 @@ void SetAdminObserverId(uint64_t observerId)
 bool EmitEcholocationPhoton(const Observer *observer, const OrientationVectorMath &orientation, PhotonParam param)
 {
 	assert(s_observers.size() > observer->m_index);
-	const VectorInt32Math &pos = s_observers[observer->m_index].m_position;
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
 	Photon photon(orientation);
 	photon.m_param = param;
 	photon.m_param2 = observer->m_index;
 	photon.m_color.m_colorA = 255;
+	if (IS_DAPHNIA_BIG)
+	{
+		VectorInt32Math unitVector = CalculatePositionShift(pos, photon.m_orientation);
+		pos = pos + unitVector;
+	}
 	return EmitPhoton(pos, photon);
 }
 
@@ -780,13 +789,25 @@ void HandleOtherObserversPhotons(const Observer *observer)
 	}
 }
 
-const EtherCellPhotonArray& GetReceivedPhotons(const class Observer *observer)
+EtherCellPhotonArray& GetReceivedPhotons(const class Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
-	const EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
 	int isTimeOdd = s_time % 2;
-	const EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
+	EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
+	return photonArray;
+}
+
+EtherCellPhotonArray& GetReceivedPhotonsForBigDaphnia(const Observer * observer, uint32_t index)
+{
+	assert(s_observers.size() > observer->m_index);
+	assert(index < 3 * 3 * 3 - 1); // 3x3x3 exclude central cell
+	VectorInt32Math pos = s_observers[observer->m_index].m_position;
+	pos = pos + GetUnitVectorFromPhotonIndex(index);
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	int isTimeOdd = s_time % 2;
+	EtherCellPhotonArray &photonArray = cell.m_photons[isTimeOdd];
 	return photonArray;
 }
 
@@ -832,7 +853,8 @@ PPh::VectorInt32Math GetRandomEmptyCell()
 		int32_t posX = Rand32(m_universeSize.m_posX);
 		int32_t posY = Rand32(m_universeSize.m_posY);
 		int32_t posZ = Rand32(m_universeSize.m_posZ);
-		if (s_universe[posX][posY][posZ].m_type == EtherType::Space)
+		VectorInt32Math pos(posX, posY, posZ);
+		if (CanDaphniaMoveToNextCell(pos))
 		{
 			return VectorInt32Math(posX, posY, posZ);
 		}
@@ -976,5 +998,117 @@ VectorInt32Math CalculatePositionShift(const VectorInt32Math &pos, const Orienta
 
 	return unitVector;
 }
+
+bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos)
+{
+	VectorInt32Math outCrumbPos;
+	return CanDaphniaMoveToNextCell(pos, VectorInt32Math::ZeroVector, outCrumbPos);
+}
+// allow zero unitVector to check place for big Daphnia
+bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos, const VectorInt32Math &unitVector, VectorInt32Math &outCrumbPos)
+{
+	VectorInt32Math nextPos = pos + unitVector;
+
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
+
+	VectorInt32Math bigDaphniaVector = VectorInt32Math::ZeroVector;
+	if (IS_DAPHNIA_BIG)
+	{
+		bigDaphniaVector = unitVector;
+	}
+
+	if (IsPosInBounds(nextPos + bigDaphniaVector))
+	{
+		if (IS_DAPHNIA_BIG)
+		{
+			for (int32_t xx = -1; xx < 2; ++xx)
+			{
+				for (int32_t yy = -1; yy < 2; ++yy)
+				{
+					for (int32_t zz = -1; zz < 2; ++zz)
+					{
+						VectorInt32Math curNextPos = VectorInt32Math(nextPos.m_posX + xx, nextPos.m_posY + yy, nextPos.m_posZ + zz);
+						EtherCell &curNextCell = s_universe[curNextPos.m_posX][curNextPos.m_posY][curNextPos.m_posZ];
+						if (curNextCell.m_type != EtherType::Space && curNextCell.m_type != EtherType::Crumb &&
+							!(curNextCell.m_type == EtherType::Observer && curNextCell.m_color.m_colorA == cell.m_color.m_colorA))
+						{
+							return false;
+						}
+						if (nextCell.m_type == EtherType::Crumb)
+						{
+							outCrumbPos = curNextPos;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			if (nextCell.m_type != EtherType::Space && nextCell.m_type != EtherType::Crumb)
+			{
+				return false;
+			}
+			if (nextCell.m_type == EtherType::Crumb)
+			{
+				outCrumbPos = nextPos;
+			}
+		}
+	}
+	else
+	{
+		return false;
+	}
+	return true;
+}
+
+// allow zero unitVector to create newborn big Daphnia (small Daphnia should be already placed in pos)
+void MoveDaphniaToNextCell(const VectorInt32Math &pos, const VectorInt32Math &unitVector)
+{
+	VectorInt32Math nextPos = pos + unitVector;
+
+	EtherCell &cell = s_universe[pos.m_posX][pos.m_posY][pos.m_posZ];
+	EtherCell &nextCell = s_universe[nextPos.m_posX][nextPos.m_posY][nextPos.m_posZ];
+
+	EtherColor daphniaColorAndIndex = cell.m_color;
+
+	if (IS_DAPHNIA_BIG)
+	{
+		// erase Daphnia
+		for (int32_t xx = -1; xx < 2; ++xx)
+		{
+			for (int32_t yy = -1; yy < 2; ++yy)
+			{
+				for (int32_t zz = -1; zz < 2; ++zz)
+				{
+					VectorInt32Math curPos = VectorInt32Math(pos.m_posX + xx, pos.m_posY + yy, pos.m_posZ + zz);
+					EtherCell &curCell = s_universe[curPos.m_posX][curPos.m_posY][curPos.m_posZ];
+					curCell.m_type = EtherType::Space;
+				}
+			}
+		}
+		// move Daphnia
+		for (int32_t xx = -1; xx < 2; ++xx)
+		{
+			for (int32_t yy = -1; yy < 2; ++yy)
+			{
+				for (int32_t zz = -1; zz < 2; ++zz)
+				{
+					VectorInt32Math curNextPos = VectorInt32Math(nextPos.m_posX + xx, nextPos.m_posY + yy, nextPos.m_posZ + zz);
+					EtherCell &curNextCell = s_universe[curNextPos.m_posX][curNextPos.m_posY][curNextPos.m_posZ];
+					curNextCell.m_type = EtherType::Observer;
+					curNextCell.m_color = daphniaColorAndIndex;
+				}
+			}
+		}
+	}
+	else
+	{
+		cell.m_type = EtherType::Space;
+		nextCell.m_type = EtherType::Observer;
+		nextCell.m_color = daphniaColorAndIndex;
+	}
+}
+
 } // namespace ParallelPhysics
 } // namespace PPh
