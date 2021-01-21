@@ -1035,7 +1035,7 @@ bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos, const VectorInt32Math 
 						{
 							return false;
 						}
-						if (nextCell.m_type == EtherType::Crumb)
+						if (curNextCell.m_type == EtherType::Crumb)
 						{
 							outCrumbPos = curNextPos;
 						}

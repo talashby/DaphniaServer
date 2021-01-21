@@ -6,7 +6,7 @@
 
 namespace PPh
 {
-constexpr int8_t EYE_FOV = 90; // Daphnia eye fov
+constexpr int8_t EYE_FOV = 120; // Daphnia eye fov
 constexpr int32_t OBSERVER_EYE_SIZE_MAX = 16; // pixels
 typedef std::array< std::array<OrientationVectorMath, OBSERVER_EYE_SIZE_MAX>, OBSERVER_EYE_SIZE_MAX> EyeArray;
 

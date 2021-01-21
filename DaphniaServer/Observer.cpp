@@ -205,6 +205,7 @@ void Observer::PPhTick(uint64_t universeTime)
 
 void Observer::Echolocation()
 {
+//*
 	std::vector<int> rndVectorX;
 	std::vector<int> rndVectorY;
 	rndVectorX.resize(m_eyeSize);
@@ -227,8 +228,9 @@ void Observer::Echolocation()
 			PhotonParam param = rndVectorY[yy] * m_eyeSize + rndVectorX[xx];
 			ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[rndVectorY[yy]][rndVectorX[xx]], param);
 		}
-	}
-	/*{
+	} //*/
+	/*
+	{
 		int32_t yy = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2);
 		PhotonParam param = yy * m_eyeSize + xx;
@@ -251,7 +253,7 @@ void Observer::Echolocation()
 		int32_t xx = OrientationVectorMath::GetRandomNumber() % (m_eyeSize / 2) + (m_eyeSize / 2);
 		PhotonParam param = yy * m_eyeSize + xx;
 		ParallelPhysics::EmitEcholocationPhoton(this, m_eyeArray[yy][xx], param);
-	}*/
+	} //*/
 }
 
 const VectorInt32Math& Observer::GetOrientMinChanger() const
