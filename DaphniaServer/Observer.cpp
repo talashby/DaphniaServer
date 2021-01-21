@@ -97,19 +97,7 @@ void Observer::PPhTick(uint64_t universeTime)
 					EtherCellPhotonArray &photons = ParallelPhysics::GetReceivedPhotonsForBigDaphnia(this, index);
 					for (Photon &photon : photons)
 					{
-						if (photon.m_color.m_colorA > 0)
-						{
-							uint8_t posY = photon.m_param / m_eyeSize;
-							assert(posY < m_eyeSize);
-							uint8_t posX = photon.m_param - posY * m_eyeSize;
-							assert(posX < m_eyeSize);
-							MsgSendPhoton msgSendPhoton;
-							msgSendPhoton.m_color = photon.m_color;
-							msgSendPhoton.m_posX = posX;
-							msgSendPhoton.m_posY = posY;
-							ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
-							photon.m_color.m_colorA = 0;
-						}
+						HandleReceivedPhoton(photon);
 					}
 				}
 				else
@@ -117,19 +105,7 @@ void Observer::PPhTick(uint64_t universeTime)
 					EtherCellPhotonArray &photons = ParallelPhysics::GetReceivedPhotons(this);
 					for (Photon &photon : photons)
 					{
-						if (photon.m_color.m_colorA > 0)
-						{
-							uint8_t posY = photon.m_param / m_eyeSize;
-							assert(posY < m_eyeSize);
-							uint8_t posX = photon.m_param - posY * m_eyeSize;
-							assert(posX < m_eyeSize);
-							MsgSendPhoton msgSendPhoton;
-							msgSendPhoton.m_color = photon.m_color;
-							msgSendPhoton.m_posX = posX;
-							msgSendPhoton.m_posY = posY;
-							ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
-							photon.m_color.m_colorA = 0;
-						}
+						HandleReceivedPhoton(photon);
 					}
 					break;
 				}
@@ -441,6 +417,23 @@ bool Observer::RotateDown(uint8_t value)
 		}
 	}
 	return false;
+}
+
+void Observer::HandleReceivedPhoton(Photon &photon)
+{
+	if (photon.m_color.m_colorA > 0)
+	{
+		uint8_t posY = photon.m_param / m_eyeSize;
+		assert(posY < m_eyeSize);
+		uint8_t posX = photon.m_param - posY * m_eyeSize;
+		assert(posX < m_eyeSize);
+		MsgSendPhoton msgSendPhoton;
+		msgSendPhoton.m_color = photon.m_color;
+		msgSendPhoton.m_posX = posX;
+		msgSendPhoton.m_posY = posY;
+		ParallelPhysics::SendClientMsg(this, msgSendPhoton, sizeof(msgSendPhoton));
+		photon.m_color.m_colorA = 0;
+	}
 }
 
 void Observer::IncEatenCrumb(const VectorInt32Math &pos)

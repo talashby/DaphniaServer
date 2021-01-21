@@ -46,7 +46,8 @@ private:
 	bool RotateRight(uint8_t value); // returns true if re-CalculateEyeState needed
 	bool RotateUp(uint8_t value); // returns true if re-CalculateEyeState needed
 	bool RotateDown(uint8_t value); // returns true if re-CalculateEyeState needed
-
+	
+	void HandleReceivedPhoton(Photon &photon);
 	const int32_t EYE_IMAGE_DELAY = 3000; // quantum of time
 
 	const int32_t ECHOLOCATION_FREQUENCY = 1; // quantum of time
