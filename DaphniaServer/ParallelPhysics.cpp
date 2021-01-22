@@ -96,7 +96,7 @@ const VectorInt32Math& GetUniverseSize();
 bool IsPosInBounds(const VectorInt32Math &pos);
 VectorInt32Math GetRandomEmptyCell();
 bool EmitPhoton(const VectorInt32Math &pos, const struct Photon &photon);
-void ClearReceivedPhotons(const class Observer *observer);
+//void ClearReceivedPhotons(const class Observer *observer);
 VectorInt32Math DestroyCrumb(VectorInt32Math cellPos, bool isResetMinCellPos);
 bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos);
 bool CanDaphniaMoveToNextCell(const VectorInt32Math &pos, const VectorInt32Math &unitVector, VectorInt32Math &outCrumbPos);
@@ -477,7 +477,7 @@ void StartSimulation()
 			for (auto &observer : s_observers)
 			{
 				observer.m_observer->PPhTick(s_time);
-				ClearReceivedPhotons(observer.m_observer);
+				//ClearReceivedPhotons(observer.m_observer);
 			}
 
 #ifdef HIGH_PRECISION_STATS
@@ -818,7 +818,7 @@ PPh::VectorInt32Math GetObserverPosition(const class Observer *observer)
 	return pos;
 }
 
-void ClearReceivedPhotons(const Observer *observer)
+/*void ClearReceivedPhotons(const Observer *observer)
 {
 	assert(s_observers.size() > observer->m_index);
 	VectorInt32Math pos = s_observers[observer->m_index].m_position;
@@ -832,7 +832,7 @@ void ClearReceivedPhotons(const Observer *observer)
 			photon.m_color.m_colorA = 0;
 		}
 	}
-}
+}*/
 
 void AdjustSizeByBounds(VectorInt32Math &size)
 {
@@ -1098,6 +1098,14 @@ void MoveDaphniaToNextCell(const VectorInt32Math &pos, const VectorInt32Math &un
 					EtherCell &curNextCell = s_universe[curNextPos.m_posX][curNextPos.m_posY][curNextPos.m_posZ];
 					curNextCell.m_type = EtherType::Observer;
 					curNextCell.m_color = daphniaColorAndIndex;
+					// clear photons (prevent to receive photons emitted in previous quantum of time)
+					int32_t isTimeOdd = (s_time + 1) % 2;
+					{
+						for (int ii = 0; ii < cell.m_photons[isTimeOdd].size(); ++ii)
+						{
+							curNextCell.m_photons[isTimeOdd][ii].m_color.m_colorA = 0;
+						}
+					}
 				}
 			}
 		}
