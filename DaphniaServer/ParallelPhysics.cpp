@@ -450,13 +450,13 @@ void StartSimulation()
 							{
 								eyeSize = 8;
 							}
-							PPh::VectorInt32Math staticPos(22, 12, 24);
+							PPh::VectorInt32Math staticPos(102, 405, 61);
 							if (s_observers.size() == 1)
 							{
-								staticPos = PPh::VectorInt32Math(16, 12, 28);
+								staticPos = PPh::VectorInt32Math(84, 405, 73);
 							}
-							//s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos, s_socketForNewClient, from));
-							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
+							s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), staticPos, s_socketForNewClient, from));
+							//s_observers.push_back(ObserverCell(new Observer(observerIndex, eyeSize), GetRandomEmptyCell(), s_socketForNewClient, from));
 							InitEtherCell(s_observers.back().m_position, EtherType::Observer, EtherColor(255, 255, 255, observerIndex));
 							MoveDaphniaToNextCell(s_observers.back().m_position, VectorInt32Math::ZeroVector); // make Daphnia bigger
 							s_socketForNewClient = -1;
